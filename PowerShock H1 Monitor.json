@@ -1,0 +1,241 @@
+{
+  "name": "PowerShock H1 Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "20dcb66a-1f92-4e21-af64-a956846b7d73",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2024-01-02",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b9e4fef2-52b5-44d7-bb7c-9dcca43876fd",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst production = data.production_types;\n\nconst renewableShare = production.find(p => p.name === 'Renewable share of load');\nconst windOnshore = production.find(p => p.name === 'Wind onshore');\nconst windOffshore = production.find(p => p.name === 'Wind offshore');\nconst solar = production.find(p => p.name === 'Solar');\nconst load = production.find(p => p.name === 'Load');\n\nconst lastIndex = renewableShare.data.length - 1;\n\nconst renewableFeedIn = renewableShare.data[lastIndex];\nconst h1Triggered = renewableFeedIn < 20;\n\nreturn [{\n  json: {\n    renewableFeedIn: renewableFeedIn.toFixed(2),\n    h1Triggered,\n    windOnshore: windOnshore.data[lastIndex],\n    windOffshore: windOffshore.data[lastIndex],\n    solar: solar.data[lastIndex],\n    load: load.data[lastIndex],\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "8dfc2266-04fb-4d02-8fd5-278dee904264",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e40d6dd9-1a68-4faf-9537-b8f3d16ae78d",
+              "leftValue": "={{ $json.renewableFeedIn }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "efbaa695-452c-444d-bec1-43ab582bb64a",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_OPENROUTER_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"openai/gpt-oss-120b:free\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Renewable energy feed-in in Germany is at {{ $('Code in JavaScript').item.json.renewableFeedIn }}% of total grid load. H1 triggered. Wind onshore: {{ $('Code in JavaScript').item.json.windOnshore }} MW, Solar: {{ $('Code in JavaScript').item.json.solar }} MW, Total load: {{ $('Code in JavaScript').item.json.load }} MW. Which DAX companies BASF, ThyssenKrupp, Covestro, HeidelbergMaterials are most at risk of volatility spike in 24 hours? Under 150 words.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        -96
+      ],
+      "id": "42845462-6537-4329-b1be-ed4214089a5b",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst aiText = response.choices[0].message.content;\nconst energyData = $('Code in JavaScript').item.json;\n\nreturn [{\n  json: {\n    alert: aiText.replace(/[\\n\\r]/g, ' ').replace(/\"/g, \"'\"),\n    renewableFeedIn: energyData.renewableFeedIn,\n    h1Triggered: energyData.h1Triggered,\n    timestamp: energyData.timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -96
+      ],
+      "id": "b8f69280-4dc3-4c3b-b726-b90e06662420",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://webhook.site/d70efee3-6a3d-4b00-bb38-af430e478e0a",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert",
+              "value": "={{ $json.alert }}"
+            },
+            {
+              "name": "renewableFeedIn",
+              "value": "={{ $json.renewableFeedIn }}"
+            },
+            {
+              "name": "h1Triggered",
+              "value": "={{ $json.h1Triggered }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1152,
+        -96
+      ],
+      "id": "1cee2815-2dc4-4081-b0cf-b3cd3690571a",
+      "name": "HTTP Request2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e3bb1a88-d798-46d0-a772-09883c890a44",
+  "meta": {
+    "instanceId": "f29bc89e6a0d526406a695fa84b9cc4c3e12bc0c60e1787ade9ca2d7092a0181"
+  },
+  "id": "8pKW8og65HBU53BQ",
+  "tags": []
+}
