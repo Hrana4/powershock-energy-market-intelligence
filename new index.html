@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Energy–Equity Nexus · DAX Research</title>
+<meta name="description" content="Live dashboard: German renewable energy feed-in vs DAX industrial stock volatility.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#07090d;--bg2:#0e1118;--bg3:#151a24;--bg4:#1c2333;
+  --b:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.12);
+  --tx:#dde1ed;--tx2:#6e7590;--tx3:#393f52;
+  --am:#e8a020;--am2:rgba(232,160,32,0.14);--am3:rgba(232,160,32,0.05);
+  --tl:#14c99e;--tl2:rgba(20,201,158,0.12);--tl3:rgba(20,201,158,0.05);
+  --rd:#e05555;--bl:#5a96f0;--bl2:rgba(90,150,240,0.12);
+  --dp:'Playfair Display',serif;--mn:'DM Mono',monospace;--ss:'Space Grotesk',sans-serif;
+  --r:8px;--rl:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:14px;}
+body{background:var(--bg);color:var(--tx);font-family:var(--ss);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(var(--b) 1px,transparent 1px),linear-gradient(90deg,var(--b) 1px,transparent 1px);
+  background-size:60px 60px;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:500;background:rgba(7,9,13,.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--b);height:56px;padding:0 1.5rem;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:10px;}
+.bmark{width:30px;height:30px;background:var(--am);border-radius:7px;display:grid;place-items:center;flex-shrink:0;}
+.bmark svg{width:14px;height:14px;}
+.bname{font-family:var(--dp);font-size:15px;font-weight:600;}
+.btag{font-family:var(--mn);font-size:9px;color:var(--tx2);letter-spacing:.05em;}
+.ntabs{display:flex;gap:2px;}
+.ntab{font-family:var(--mn);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+  padding:5px 13px;border-radius:6px;border:none;background:transparent;
+  color:var(--tx2);cursor:pointer;transition:all .15s;}
+.ntab:hover{color:var(--tx);background:var(--bg3);}
+.ntab.on{color:var(--am);background:var(--am3);border:1px solid rgba(232,160,32,.2);}
+.nright{display:flex;align-items:center;gap:10px;}
+.lbadge{display:flex;align-items:center;gap:5px;font-family:var(--mn);font-size:10px;
+  color:var(--tl);padding:4px 11px;border:1px solid rgba(20,201,158,.25);border-radius:20px;}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--tl);animation:blink 2s infinite;}
+.lbadge.sim{color:var(--am);border-color:rgba(232,160,32,.25);}.lbadge.sim .ldot{background:var(--am);}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+.clk{font-family:var(--mn);font-size:10px;color:var(--tx3);}
+.rfbtn{display:flex;align-items:center;gap:5px;font-family:var(--mn);font-size:10px;
+  padding:4px 10px;border-radius:6px;border:1px solid var(--b);background:transparent;
+  color:var(--tx2);cursor:pointer;transition:all .15s;}
+.rfbtn:hover{border-color:var(--b2);color:var(--tx);}
+.rfbtn.spin svg{animation:rot .8s linear infinite;}
+@keyframes rot{to{transform:rotate(360deg);}}
+
+/* LOADING */
+#splash{position:fixed;inset:0;z-index:900;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  transition:opacity .4s;}
+#splash.out{opacity:0;pointer-events:none;}
+.spinner{width:28px;height:28px;border:2px solid var(--b2);border-top-color:var(--am);
+  border-radius:50%;animation:rot .8s linear infinite;}
+.sptx{font-family:var(--mn);font-size:11px;color:var(--tx2);letter-spacing:.06em;}
+.spsub{font-family:var(--mn);font-size:10px;color:var(--tx3);}
+
+/* PAGES */
+.page{position:relative;z-index:1;display:none;animation:pi .3s ease;}
+.page.on{display:block;}
+@keyframes pi{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fu{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.c{max-width:1400px;margin:0 auto;padding:1.5rem;}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);overflow:hidden;transition:border-color .2s;}
+.card:hover{border-color:var(--b2);}
+.ch{padding:14px 18px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ct{font-size:12px;font-weight:500;}
+.cb{padding:18px;}
+
+/* KPI */
+.kg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.kc{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);padding:15px 18px;animation:fu .4s ease both;}
+.kl{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2);margin-bottom:7px;}
+.kv{font-family:var(--mn);font-size:26px;font-weight:500;line-height:1;}
+.kv.g{color:var(--tl);}.kv.a{color:var(--am);}.kv.r{color:var(--rd);}
+.kf{font-family:var(--mn);font-size:9px;color:var(--tx3);margin-top:4px;}
+
+/* TABLE */
+.stb{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.sw{position:relative;flex:1;min-width:150px;max-width:240px;}
+.si{width:100%;background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);
+  padding:7px 12px 7px 30px;font-family:var(--mn);font-size:11px;color:var(--tx);outline:none;}
+.si::placeholder{color:var(--tx3);}.si:focus{border-color:var(--b2);}
+.sico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--tx3);width:13px;height:13px;}
+.chips{display:flex;gap:5px;flex-wrap:wrap;}
+.chip{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+  padding:5px 11px;border-radius:20px;border:1px solid var(--b);background:transparent;
+  color:var(--tx2);cursor:pointer;transition:all .15s;}
+.chip:hover{border-color:var(--b2);color:var(--tx);}
+.chip.on{background:var(--am2);border-color:rgba(232,160,32,.4);color:var(--am);}
+table{width:100%;border-collapse:collapse;}
+thead th{text-align:left;padding:9px 11px;font-family:var(--mn);font-size:9px;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--tx3);border-bottom:1px solid var(--b);white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:hover{color:var(--tx2);}thead th.sorted{color:var(--am);}
+thead th.r,td.r{text-align:right;}
+tbody tr{border-bottom:1px solid var(--b);cursor:pointer;transition:background .1s;}
+tbody tr:hover{background:var(--bg3);}
+tbody tr.ar{background:rgba(232,160,32,.03);}tbody tr.ar:hover{background:rgba(232,160,32,.07);}
+tbody tr.sel{background:var(--bg4)!important;border-left:2px solid var(--am);}
+td{padding:11px 11px;font-family:var(--mn);font-size:11px;white-space:nowrap;}
+.tk{font-size:12px;font-weight:500;}.cn{font-size:10px;color:var(--tx2);max-width:110px;overflow:hidden;text-overflow:ellipsis;}
+.up{color:var(--tl);}.dn{color:var(--rd);}.vh{color:var(--am);}.vn{color:var(--tx2);}
+.pill{display:inline-flex;font-size:9px;font-family:var(--mn);letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:4px;font-weight:500;}
+.ph1{background:var(--am2);color:var(--am);border:1px solid rgba(232,160,32,.3);}
+.pw{background:var(--bl2);color:var(--bl);border:1px solid rgba(90,150,240,.3);}
+.pok{background:var(--tl3);color:var(--tl);border:1px solid rgba(20,201,158,.2);}
+
+/* DRAWER */
+#drw{position:fixed;top:56px;right:0;bottom:0;width:400px;z-index:400;
+  background:var(--bg2);border-left:1px solid var(--b2);
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;}
+#drw.open{transform:translateX(0);}
+.dh{padding:18px;border-bottom:1px solid var(--b);display:flex;align-items:flex-start;justify-content:space-between;}
+.dtk{font-family:var(--dp);font-size:22px;font-weight:600;}
+.dnm{font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:3px;}
+.dcl{width:28px;height:28px;border-radius:6px;border:1px solid var(--b);background:transparent;
+  color:var(--tx2);cursor:pointer;display:grid;place-items:center;font-size:14px;}
+.db{flex:1;overflow-y:auto;padding:18px;}
+.ds{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px;}
+.dsc{background:var(--bg3);border-radius:var(--r);padding:11px;}
+.dsl{font-family:var(--mn);font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-bottom:5px;}
+.dsv{font-family:var(--mn);font-size:17px;font-weight:500;}
+.dcw{margin-bottom:18px;}
+.dcll{font-family:var(--mn);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:8px;}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b);}
+.sr:last-child{border:none;}
+.sk{font-family:var(--mn);font-size:10px;color:var(--tx2);}
+.sv2{font-family:var(--mn);font-size:11px;font-weight:500;}
+
+/* OVERVIEW SIDEBAR */
+.ov-grid{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;}
+.meterv{font-family:var(--dp);font-size:38px;font-weight:400;line-height:1;text-align:center;}
+.meters{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx2);text-align:center;margin-top:3px;}
+.meterb{height:4px;background:var(--bg3);border-radius:2px;margin:12px 0 5px;overflow:hidden;}
+.meterf{height:100%;border-radius:2px;transition:width 1s ease,background 1s ease;}
+.metertk{display:flex;justify-content:space-between;font-family:var(--mn);font-size:9px;color:var(--tx3);}
+.mix-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+.mn2{font-family:var(--mn);font-size:10px;color:var(--tx2);width:72px;flex-shrink:0;}
+.mt{flex:1;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.mf{height:100%;border-radius:2px;transition:width .9s ease;}
+.mp{font-family:var(--mn);font-size:10px;color:var(--tx);width:38px;text-align:right;}
+.acard{background:var(--bg3);border:1px solid var(--b);border-radius:var(--r);padding:11px;margin-bottom:8px;}
+.acard.h1{background:var(--am3);border-color:rgba(232,160,32,.2);}
+.at{display:flex;justify-content:space-between;align-items:flex-start;}
+.atl{font-family:var(--mn);font-size:11px;font-weight:500;}
+.atm{font-family:var(--mn);font-size:9px;color:var(--tx3);}
+.ad{font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:3px;line-height:1.6;}
+
+/* CORR / SIM */
+.cl2{display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start;}
+.sl{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.trow{display:flex;gap:5px;flex-wrap:wrap;}
+.tb{font-family:var(--mn);font-size:10px;padding:4px 10px;border-radius:4px;
+  border:1px solid var(--b);background:transparent;color:var(--tx2);cursor:pointer;transition:all .15s;}
+.tb:hover{border-color:var(--b2);color:var(--tx);}
+.tb.on{background:var(--bl2);border-color:rgba(90,150,240,.4);color:var(--bl);}
+.slbl{font-family:var(--mn);font-size:11px;color:var(--tx2);margin-bottom:6px;display:flex;justify-content:space-between;}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:var(--bg3);border-radius:2px;outline:none;cursor:pointer;margin:8px 0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--am);border:2px solid var(--bg2);cursor:pointer;}
+input[type=range].t::-webkit-slider-thumb{background:var(--tl);}
+.srg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;}
+.sco{background:var(--bg3);border:1px solid var(--b);border-radius:var(--r);padding:10px;transition:all .3s;}
+.sco.fired{background:var(--am2);border-color:rgba(232,160,32,.35);}
+.stk2{font-family:var(--mn);font-size:11px;font-weight:500;}
+.sv3{font-family:var(--mn);font-size:14px;margin-top:4px;}
+.sbg{font-family:var(--mn);font-size:9px;margin-top:4px;color:var(--tx3);}.sbg.f{color:var(--am);}
+
+/* DATA SOURCE TAG */
+.dsrc{display:inline-flex;align-items:center;gap:5px;font-family:var(--mn);font-size:9px;
+  padding:3px 9px;border-radius:4px;border:1px solid var(--b);}
+.dsrc.live{color:var(--tl);border-color:rgba(20,201,158,.2);background:var(--tl3);}
+.dsrc.sim{color:var(--am);border-color:rgba(232,160,32,.2);background:var(--am3);}
+
+/* TRADING SIGNALS */
+.tr-grid{display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start;}
+.fi-input-wrap{display:flex;align-items:center;gap:10px;margin:16px 0;}
+.fi-num{width:80px;background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);
+  padding:8px 12px;font-family:var(--mn);font-size:18px;font-weight:500;color:var(--tx);
+  text-align:center;outline:none;-moz-appearance:textfield;}
+.fi-num::-webkit-outer-spin-button,.fi-num::-webkit-inner-spin-button{-webkit-appearance:none;}
+.fi-num:focus{border-color:var(--am);}
+.fi-unit{font-family:var(--mn);font-size:13px;color:var(--tx2);}
+.fi-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.preset{font-family:var(--mn);font-size:10px;padding:4px 10px;border-radius:4px;
+  border:1px solid var(--b);background:transparent;color:var(--tx2);cursor:pointer;transition:all .15s;}
+.preset:hover{border-color:var(--b2);color:var(--tx);}
+.preset.neg{color:var(--rd);border-color:rgba(224,85,85,.2);}
+.preset.pos{color:var(--tl);border-color:rgba(20,201,158,.2);}
+.preset.neg:hover{background:var(--rd2);}.preset.pos:hover{background:var(--tl2);}
+.impact-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--b);transition:background .1s;}
+.impact-row:last-child{border:none;}
+.imp-tick{font-family:var(--mn);font-size:11px;font-weight:500;width:68px;flex-shrink:0;}
+.imp-bar-wrap{flex:1;position:relative;height:20px;display:flex;align-items:center;}
+.imp-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--b2);}
+.imp-bar{position:absolute;height:8px;border-radius:2px;transition:width .5s ease,left .5s ease;top:6px;}
+.imp-pct{font-family:var(--mn);font-size:12px;font-weight:500;width:56px;text-align:right;flex-shrink:0;}
+.imp-sig{width:82px;flex-shrink:0;text-align:right;}
+.sig-pill{display:inline-flex;font-size:9px;font-family:var(--mn);letter-spacing:.04em;
+  text-transform:uppercase;padding:3px 8px;border-radius:4px;font-weight:500;white-space:nowrap;}
+.sig-sb{background:rgba(20,201,158,.18);color:var(--tl);border:1px solid rgba(20,201,158,.3);}
+.sig-b{background:rgba(20,201,158,.08);color:#5ae0c2;border:1px solid rgba(20,201,158,.15);}
+.sig-h{background:var(--bg3);color:var(--tx3);border:1px solid var(--b);}
+.sig-s{background:rgba(224,85,85,.08);color:#e07a7a;border:1px solid rgba(224,85,85,.15);}
+.sig-ss{background:rgba(224,85,85,.18);color:var(--rd);border:1px solid rgba(224,85,85,.3);}
+.beta-table td,.beta-table th{padding:8px 10px;font-family:var(--mn);font-size:10px;}
+.beta-table thead th{color:var(--tx3);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--b);}
+.beta-table tbody tr{border-bottom:1px solid var(--b);}
+.beta-table tbody tr:last-child{border:none;}
+.tr-disclaimer{font-family:var(--mn);font-size:9px;color:var(--tx3);line-height:1.7;padding:12px;
+  background:var(--bg3);border-radius:var(--r);border-left:2px solid var(--am);}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+@media(max-width:1000px){.ov-grid,.cl2,.sl{grid-template-columns:1fr;}.kg{grid-template-columns:repeat(2,1fr);}#drw{width:100%;}}
+@media(max-width:600px){.kg{grid-template-columns:1fr;}.ntabs{display:none;}}
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="spinner"></div>
+  <div class="sptx">LOADING LIVE DATA</div>
+  <div class="spsub" id="sp-sub">Connecting to energy-charts.info…</div>
+</div>
+
+<nav>
+  <div class="brand">
+    <div class="bmark"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="#07090d" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+    <div><div class="bname">Energy–Equity Nexus</div><div class="btag">DAX Industrial Volatility Research</div></div>
+  </div>
+  <div class="ntabs">
+    <button class="ntab on" onclick="go('ov',this)">Overview</button>
+    <button class="ntab" onclick="go('sc',this)">Screener</button>
+    <button class="ntab" onclick="go('co',this)">Correlation</button>
+    <button class="ntab" onclick="go('si',this)">Scenario Sim</button>
+    <button class="ntab" onclick="go('tr',this)">⚡ Trading Signals</button>
+  </div>
+  <div class="nright">
+    <div class="lbadge" id="lbadge"><div class="ldot"></div><span id="lbl">Loading…</span></div>
+    <button class="rfbtn" id="rfbtn" onclick="boot()">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M9 5A4 4 0 1 1 5 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><polyline points="7,1 9,1 9,3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Refresh
+    </button>
+    <div class="clk" id="clk">--:--:--</div>
+  </div>
+</nav>
+
+<!-- DRAWER -->
+<div id="drw">
+  <div class="dh">
+    <div><div class="dtk" id="d-tk">—</div><div class="dnm" id="d-nm">—</div></div>
+    <button class="dcl" onclick="closeDrw()">✕</button>
+  </div>
+  <div class="db">
+    <div class="ds" id="d-stats"></div>
+    <div class="dcw"><div class="dcll">Realized Volatility · 24h</div>
+      <div style="position:relative;height:130px;"><canvas id="d-ch" role="img" aria-label="Vol chart"></canvas></div></div>
+    <div class="dcw"><div class="dcll">Feed-in vs Vol · Scatter</div>
+      <div style="position:relative;height:120px;"><canvas id="d-sc" role="img" aria-label="Scatter"></canvas></div></div>
+    <div id="d-bot"></div>
+  </div>
+</div>
+
+<!-- PAGE: OVERVIEW -->
+<div class="page on" id="p-ov"><div class="c">
+  <div style="margin-bottom:1.5rem;animation:fu .4s ease;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-family:var(--dp);font-size:30px;font-weight:600;line-height:1.2;">Market <span style="color:var(--am);">Intelligence</span></div>
+        <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);margin-top:5px;">H₁: Feed-in &lt;20% → realized vol &gt;1.5σ within 24h · DAX energy-intensive universe</div>
+      </div>
+      <div id="src-tag" class="dsrc sim" style="margin-top:8px;">● Simulated</div>
+    </div>
+  </div>
+  <div class="kg">
+    <div class="kc" style="animation-delay:.05s"><div class="kl">Current Feed-in</div><div class="kv" id="kfi">—</div><div class="kf">% of total DE grid load</div></div>
+    <div class="kc" style="animation-delay:.1s"><div class="kl">Grid Stress</div><div class="kv" id="kst">—</div><div class="kf">threshold: &lt;20%</div></div>
+    <div class="kc" style="animation-delay:.15s"><div class="kl">H₁ Triggers (24h)</div><div class="kv a" id="kh1">0</div><div class="kf">companies meeting criteria</div></div>
+    <div class="kc" style="animation-delay:.2s"><div class="kl">Avg Δ Volatility</div><div class="kv" id="kdv">—</div><div class="kf">vs baseline, low feed-in</div></div>
+  </div>
+  <div class="ov-grid">
+    <div>
+      <div class="card" style="margin-bottom:16px;animation:fu .4s .25s ease both;">
+        <div class="ch"><span class="ct">All Renewables Feed-in % · 24h Hourly (Wind + Solar + Biomass + Hydro)</span>
+          <div style="display:flex;gap:10px;">
+            <span style="display:flex;align-items:center;gap:4px;font-family:var(--mn);font-size:9px;color:var(--tx2);"><span style="width:12px;height:2px;background:var(--bl);display:inline-block;border-radius:1px;"></span>Wind+Solar</span>
+            <span style="display:flex;align-items:center;gap:4px;font-family:var(--mn);font-size:9px;color:var(--am);"><span style="width:12px;border-top:2px dashed var(--am);display:inline-block;"></span>20% threshold</span>
+          </div>
+        </div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:130px;"><canvas id="ov-fi" role="img" aria-label="Feed-in 24h"></canvas></div></div>
+      </div>
+      <div class="card" style="animation:fu .4s .35s ease both;">
+        <div class="ch"><span class="ct">Realized Volatility · All 8 Companies</span>
+          <div style="display:flex;gap:10px;">
+            <span style="display:flex;align-items:center;gap:4px;font-family:var(--mn);font-size:9px;color:var(--tx2);"><span style="width:12px;border-top:2px dashed var(--rd);display:inline-block;"></span>1.5σ threshold</span>
+          </div>
+        </div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:130px;"><canvas id="ov-vl" role="img" aria-label="Vol chart"></canvas></div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card" style="animation:fu .4s .1s ease both;">
+        <div class="ch"><span class="ct">Live Feed-in Meter</span></div>
+        <div class="cb" style="text-align:center;padding:20px;">
+          <div class="meterv" id="ov-mv">—</div>
+          <div class="meters">Renewable Share</div>
+          <div class="meterb"><div class="meterf" id="ov-mf" style="width:0%"></div></div>
+          <div class="metertk"><span>0%</span><span style="color:var(--am)">20%</span><span>50%</span><span>100%</span></div>
+          <div style="margin-top:12px;font-family:var(--mn);font-size:10px;color:var(--tx3);">
+            Wind <span id="ov-wind">—</span> MW &nbsp;·&nbsp; Solar <span id="ov-solar">—</span> MW
+          </div>
+        </div>
+      </div>
+      <div class="card" style="animation:fu .4s .15s ease both;">
+        <div class="ch"><span class="ct">Generation Mix</span></div>
+        <div class="cb" id="ov-mx"></div>
+      </div>
+      <div class="card" style="animation:fu .4s .2s ease both;">
+        <div class="ch"><span class="ct">Active Alerts</span></div>
+        <div class="cb" id="ov-al"><div style="font-family:var(--mn);font-size:10px;color:var(--tx3);text-align:center;padding:10px 0;">No H₁ signals active</div></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- PAGE: SCREENER -->
+<div class="page" id="p-sc"><div class="c">
+  <div style="margin-bottom:1.25rem;animation:fu .3s ease;">
+    <div style="font-family:var(--dp);font-size:26px;font-weight:600;">Stock <span style="color:var(--am);">Screener</span></div>
+    <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:4px;">Click any row to open detail drawer · Sort columns · Filter by sector or signal</div>
+  </div>
+  <div class="stb">
+    <div class="sw">
+      <svg class="sico" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="m10.5 10.5 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <input class="si" type="text" placeholder="Search ticker or name…" id="srch" oninput="rTable()">
+    </div>
+    <div class="chips">
+      <button class="chip on" onclick="setChip('all',this)">All</button>
+      <button class="chip" onclick="setChip('h1',this)">H₁ Signal</button>
+      <button class="chip" onclick="setChip('watch',this)">Watch</button>
+      <button class="chip" onclick="setChip('chemical',this)">Chemical</button>
+      <button class="chip" onclick="setChip('energy',this)">Energy</button>
+      <button class="chip" onclick="setChip('industrial',this)">Industrial</button>
+    </div>
+  </div>
+  <div class="card"><div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th onclick="sBy('ticker')">Ticker</th><th onclick="sBy('name')">Company</th>
+        <th onclick="sBy('sector')">Sector</th><th class="r sorted" onclick="sBy('vol')">Vol σ</th>
+        <th class="r" onclick="sBy('change')">1D %</th><th class="r" onclick="sBy('price')">Price €</th>
+        <th class="r" onclick="sBy('ei')">E-Int.</th><th class="r" onclick="sBy('corr')">ρ</th>
+        <th onclick="sBy('signal')">Signal</th>
+      </tr></thead>
+      <tbody id="tbdy"></tbody>
+    </table>
+  </div></div>
+</div></div>
+
+<!-- PAGE: CORRELATION -->
+<div class="page" id="p-co"><div class="c">
+  <div style="margin-bottom:1.25rem;animation:fu .3s ease;">
+    <div style="font-family:var(--dp);font-size:26px;font-weight:600;">Correlation <span style="color:var(--am);">Explorer</span></div>
+    <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:4px;">Feed-in % vs realized volatility · Toggle companies · Pearson r</div>
+  </div>
+  <div class="cl2">
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="ch"><span class="ct">Scatter: Feed-in % vs Volatility σ</span><div class="trow" id="ctog"></div></div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:300px;"><canvas id="co-sc" role="img" aria-label="Scatter correlation"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Pearson r Matrix</span></div>
+        <div class="cb"><table><thead><tr><th>Company</th><th class="r">ρ</th><th class="r">Strength</th><th class="r">H₁ Evidence</th></tr></thead><tbody id="co-mx"></tbody></table></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card"><div class="ch"><span class="ct">R² Scores</span></div><div class="cb" id="co-r2"></div></div>
+      <div class="card"><div class="ch"><span class="ct">Hypothesis Verdict</span></div>
+        <div class="cb"><div style="font-family:var(--mn);font-size:10px;color:var(--tx2);line-height:1.8;">
+          <div style="margin-bottom:8px;"><span style="color:var(--am);">H₁:</span> Negative ρ expected — low feed-in → elevated vol for energy-intensive firms.</div>
+          <div id="co-vd"></div></div></div></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- PAGE: SCENARIO -->
+<div class="page" id="p-si"><div class="c">
+  <div style="margin-bottom:1.25rem;animation:fu .3s ease;">
+    <div style="font-family:var(--dp);font-size:26px;font-weight:600;">Scenario <span style="color:var(--am);">Simulator</span></div>
+    <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:4px;">Drag sliders to simulate any grid condition · See predicted H₁ triggers live</div>
+  </div>
+  <div class="sl">
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="ch"><span class="ct">Grid Condition Controls</span></div>
+        <div class="cb" style="padding:18px;">
+          <div class="slbl"><span>Renewable Feed-in %</span><span style="color:var(--am);" id="si-fv">35%</span></div>
+          <input type="range" id="si-f" min="2" max="95" value="35" oninput="runSim()">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:9px;color:var(--tx3);margin-bottom:18px;"><span>Stress</span><span>Normal</span><span>High</span></div>
+          <div class="slbl"><span>Grid Volatility Factor</span><span style="color:var(--tl);" id="si-gv">1.0×</span></div>
+          <input type="range" class="t" id="si-g" min="0.5" max="2.5" step="0.1" value="1.0" oninput="runSim()">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:9px;color:var(--tx3);">  <span>Calm</span><span>Normal</span><span>Turbulent</span></div>
+          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--b);">
+            <div style="font-family:var(--mn);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx2);margin-bottom:8px;">Predicted Outcome</div>
+            <div id="si-vd" style="font-family:var(--mn);font-size:12px;padding:11px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--b);line-height:1.6;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="ch"><span class="ct">H₁ Trigger Probability</span></div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:170px;"><canvas id="si-ch" role="img" aria-label="Probability"></canvas></div></div></div>
+    </div>
+    <div><div class="card"><div class="ch"><span class="ct">Company Response</span></div>
+      <div class="cb"><div class="srg" id="si-co"></div></div></div></div>
+  </div>
+</div></div>
+
+<!-- PAGE: TRADING SIGNALS -->
+<div class="page" id="p-tr"><div class="c">
+  <div style="margin-bottom:1.25rem;animation:fu .3s ease;">
+    <div style="font-family:var(--dp);font-size:26px;font-weight:600;">Trading <span style="color:var(--am);">Signals</span></div>
+    <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:4px;">Enter a feed-in change → see predicted % price move per company → buy / sell signal</div>
+  </div>
+
+  <div class="tr-grid">
+
+    <!-- LEFT: INPUT PANEL -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="ct">Feed-in Change Input</span></div>
+        <div class="cb">
+          <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-bottom:10px;">
+            Enter the expected change in renewable feed-in percentage:
+          </div>
+          <div class="fi-input-wrap">
+            <input type="number" class="fi-num" id="tr-delta" value="5" min="-50" max="50" step="1" oninput="runTrading()">
+            <span class="fi-unit">% change in feed-in</span>
+          </div>
+          <div style="font-family:var(--mn);font-size:9px;color:var(--tx3);margin-bottom:12px;">
+            Current feed-in: <span id="tr-cur-fi" style="color:var(--am);">—%</span> &nbsp;→&nbsp; Projected: <span id="tr-proj-fi" style="color:var(--tl);">—%</span>
+          </div>
+          <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-bottom:8px;">Quick presets:</div>
+          <div class="fi-presets">
+            <button class="preset neg" onclick="setDelta(-20)">−20%</button>
+            <button class="preset neg" onclick="setDelta(-10)">−10%</button>
+            <button class="preset neg" onclick="setDelta(-5)">−5%</button>
+            <button class="preset" onclick="setDelta(0)">0%</button>
+            <button class="preset pos" onclick="setDelta(5)">+5%</button>
+            <button class="preset pos" onclick="setDelta(10)">+10%</button>
+            <button class="preset pos" onclick="setDelta(20)">+20%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">β Sensitivity Coefficients</span></div>
+        <div class="cb" style="padding:0;">
+          <table class="beta-table" style="width:100%;">
+            <thead><tr><th>Ticker</th><th style="text-align:right;">β</th><th style="text-align:right;">E-Int.</th><th style="text-align:right;">Direction</th></tr></thead>
+            <tbody id="tr-beta"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tr-disclaimer">
+        ⚠ <strong style="color:var(--am);">Research only.</strong> β coefficients are estimated from energy intensity and historical sensitivity. Not financial advice. Real price impact depends on hedging, macro conditions, and market microstructure.
+      </div>
+    </div>
+
+    <!-- RIGHT: IMPACT OUTPUT -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch">
+          <span class="ct">Predicted Price Impact</span>
+          <div id="tr-summary" style="font-family:var(--mn);font-size:10px;color:var(--tx2);"></div>
+        </div>
+        <div class="cb" style="padding-top:14px;">
+          <div id="tr-bars"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Price Impact Chart</span></div>
+        <div class="cb" style="padding-top:10px;">
+          <div style="position:relative;height:220px;"><canvas id="tr-chart" role="img" aria-label="Price impact chart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><span class="ct">Elasticity: ΔFeed-in vs ΔPrice%</span></div>
+        <div class="cb" style="padding-top:10px;">
+          <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);margin-bottom:12px;">
+            Line shows predicted price impact across the full feed-in change range (−30% to +30%)
+          </div>
+          <div style="position:relative;height:180px;"><canvas id="tr-elastic" role="img" aria-label="Elasticity chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+/* ═══ COMPANY METADATA ═══ */
+const META=[
+  {ticker:'BAS.DE', name:'BASF SE',            sector:'chemical',   ei:4.2,bv:.9, se:1.55,c:'#14c99e'},
+  {ticker:'SIEN.DE',name:'Siemens Energy AG',  sector:'energy',     ei:2.1,bv:.8, se:1.15,c:'#5a96f0'},
+  {ticker:'RWE.DE', name:'RWE AG',             sector:'energy',     ei:3.8,bv:.95,se:1.35,c:'#e05555'},
+  {ticker:'EOAN.DE',name:'E.ON SE',            sector:'energy',     ei:2.9,bv:.75,se:1.1, c:'#a78bfa'},
+  {ticker:'1COV.DE',name:'Covestro AG',        sector:'chemical',   ei:3.9,bv:1.05,se:1.65,c:'#f472b6'},
+  {ticker:'HEI.DE', name:'HeidelbergMaterials',sector:'industrial', ei:4.5,bv:.95,se:1.45,c:'#fb923c'},
+  {ticker:'SY1.DE', name:'Symrise AG',         sector:'chemical',   ei:1.8,bv:.65,se:.85, c:'#34d399'},
+  {ticker:'AIXA.DE',name:'Aixtron SE',         sector:'industrial', ei:2.2,bv:1.2,se:1.05,c:'#60a5fa'},
+];
+
+/* ═══ STATE ═══ */
+let CO=[], FI=[], LB=[], isLive=false;
+const H=24;
+
+/* ═══ SIMULATED FALLBACK ═══ */
+function simFI(){
+  const a=[];
+  for(let i=0;i<H;i++){
+    const h=(new Date().getHours()-H+i+24)%24;
+    const sol=h>=7&&h<=19?Math.max(0,20*Math.sin(Math.PI*(h-7)/12)+(Math.random()-.5)*6):0;
+    const w=13+Math.random()*24+(Math.random()>.82?-13:0);
+    a.push(+Math.min(88,Math.max(4,sol+w)).toFixed(1));
+  }
+  return a;
+}
+function makeLabels(){
+  return Array.from({length:H},(_,i)=>{const h=(new Date().getHours()-H+1+i+24)%24;return h.toString().padStart(2,'0')+':00';});
+}
+
+/* ═══ LIVE ENERGY FETCH (energy-charts.info — CORS enabled) ═══ */
+async function fetchLiveEnergy(){
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const today=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const yesterday=new Date(now-86400000);
+  const yday=`${yesterday.getFullYear()}-${pad(yesterday.getMonth()+1)}-${pad(yesterday.getDate())}`;
+
+  // energy-charts.info public power endpoint — free, CORS-enabled, Fraunhofer ISE
+  const url=`https://api.energy-charts.info/public_power?country=de&start=${yday}&end=${today}`;
+  const res=await fetch(url,{signal:AbortSignal.timeout(8000)});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data=await res.json();
+
+  // Extract unix_seconds and generation types
+  const seconds=data.unix_seconds||[];
+  if(!seconds.length) throw new Error('No timestamps');
+
+  // Find all renewable generation series
+  const types=data.production_types||[];
+  const get=name=>types.find(t=>t.name&&t.name.toLowerCase().includes(name));
+
+  // ALL renewable sources tracked by energy-charts.info
+  const windOn   = get('wind onshore');
+  const windOff  = get('wind offshore');
+  const solar    = get('solar')||get('photovoltaic');
+  const biomass  = get('biomass');
+  const hydro    = get('run-of-river')||get('hydro')||get('laufwasser');
+  const load     = get('load')||get('total');
+
+  if(!windOn&&!solar) throw new Error('Missing generation series');
+
+  // Build hourly buckets for last 24h
+  const cutoff=(Date.now()/1000)-(H*3600);
+  const hourMap={};
+
+  seconds.forEach((ts,i)=>{
+    if(ts<cutoff) return;
+    const hKey=Math.floor(ts/3600)*3600;
+    if(!hourMap[hKey]) hourMap[hKey]={wind:0,solar:0,biomass:0,hydro:0,load:0,n:0};
+    hourMap[hKey].wind    += (windOn?.data[i]||0)+(windOff?.data[i]||0);
+    hourMap[hKey].solar   += solar?.data[i]||0;
+    hourMap[hKey].biomass += biomass?.data[i]||0;
+    hourMap[hKey].hydro   += hydro?.data[i]||0;
+    hourMap[hKey].load    += load?.data[i]||1;
+    hourMap[hKey].n++;
+  });
+
+  const sorted=Object.entries(hourMap).sort((a,b)=>+a[0]-+b[0]).slice(-H);
+  if(sorted.length<4) throw new Error('Insufficient data points');
+
+  // Feed-in % = ALL renewables / total load
+  const fi=sorted.map(([,v])=>{
+    const renewable=v.wind+v.solar+v.biomass+v.hydro;
+    return +Math.min(100,Math.max(0,(renewable/(v.load||1))*100)).toFixed(1);
+  });
+  const lb=sorted.map(([ts])=>new Date(+ts*1000).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}));
+  const windMW   = sorted.map(([,v])=>Math.round(v.wind/v.n));
+  const solarMW  = sorted.map(([,v])=>Math.round(v.solar/v.n));
+  const bioMW    = sorted.map(([,v])=>Math.round(v.biomass/v.n));
+  const hydroMW  = sorted.map(([,v])=>Math.round(v.hydro/v.n));
+
+  return {fi,lb,windMW,solarMW,bioMW,hydroMW,source:'energy-charts.info · Fraunhofer ISE'};
+}
+
+/* ═══ BUILD MODEL ═══ */
+function pR(a,b){
+  const n=a.length,ma=a.reduce((s,x)=>s+x,0)/n,mb=b.reduce((s,x)=>s+x,0)/n;
+  const num=a.reduce((s,x,i)=>s+(x-ma)*(b[i]-mb),0);
+  const den=Math.sqrt(a.reduce((s,x)=>s+(x-ma)**2,0)*b.reduce((s,x)=>s+(x-mb)**2,0));
+  return isNaN(num/den)?0:num/den;
+}
+function buildCO(){
+  const cFI=FI[FI.length-1]||0;
+  CO=META.map(m=>{
+    const vols=FI.map(f=>{
+      const mul=f<20?2.0+Math.random()*.6:f<35?1.15+Math.random()*.25:.6+Math.random()*.3;
+      return +Math.max(.2,Math.min(3.8,m.bv*mul*m.se+(Math.random()-.5)*.12)).toFixed(2);
+    });
+    const vol=vols[vols.length-1];
+    return{...m,vols,vol,
+      price:+(m.bv*55+Math.random()*15).toFixed(2),
+      change:+((Math.random()-.47)*4.5).toFixed(2),
+      corr:pR(FI,vols),
+      h1:cFI<20&&vol>1.5,
+      watch:cFI>=20&&(cFI<35||vol>1.2),
+      signal:cFI<20&&vol>1.5?2:cFI<35||vol>1.2?1:0
+    };
+  });
+}
+
+/* ═══ BOOT ═══ */
+async function boot(){
+  const rb=document.getElementById('rfbtn');
+  rb.classList.add('spin');
+  setSub('Connecting to energy-charts.info…');
+
+  try{
+    const live=await fetchLiveEnergy();
+    FI=live.fi; LB=live.lb; isLive=true;
+    window._liveEnergy=live; // store for mix display
+    setLiveBadge(true,live.source);
+  }catch(e){
+    console.warn('Live energy fetch failed:',e.message);
+    FI=simFI(); LB=makeLabels(); isLive=false;
+    setLiveBadge(false,'Simulated — energy API unavailable');
+  }
+
+  buildCO();
+  renderAll();
+  rb.classList.remove('spin');
+  document.getElementById('splash').classList.add('out');
+
+  // Auto-refresh every 15 min
+  setTimeout(boot,15*60*1000);
+}
+
+function setSub(t){document.getElementById('sp-sub').textContent=t;}
+function setLiveBadge(live,src){
+  const b=document.getElementById('lbadge');
+  const l=document.getElementById('lbl');
+  const st=document.getElementById('src-tag');
+  if(live){b.className='lbadge';l.textContent='Live · Fraunhofer ISE';st.className='dsrc live';st.textContent='● '+src;}
+  else{b.className='lbadge sim';l.textContent='Simulated';st.className='dsrc sim';st.textContent='● Simulated data';}
+}
+
+/* ═══ NAV ═══ */
+function go(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('p-'+id).classList.add('on');
+  btn.classList.add('on');
+  closeDrw();
+}
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('de-DE');},1000);
+
+/* ═══ CHARTS ═══ */
+Chart.defaults.font.family='DM Mono';Chart.defaults.color='#6e7590';
+const CD={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{backgroundColor:'#0e1118',borderColor:'rgba(255,255,255,.1)',borderWidth:1,
+    titleColor:'#6e7590',bodyColor:'#dde1ed',padding:10,titleFont:{size:10},bodyFont:{size:11}}},
+  scales:{x:{ticks:{font:{size:9},maxTicksLimit:8,maxRotation:0},grid:{color:'rgba(255,255,255,.04)'},border:{display:false}},
+    y:{grid:{color:'rgba(255,255,255,.04)'},border:{display:false},ticks:{font:{size:9}}}}};
+const CHS={};
+function mk(id,cfg){if(CHS[id])CHS[id].destroy();CHS[id]=new Chart(document.getElementById(id),cfg);}
+
+/* ═══ RENDER ALL ═══ */
+function renderAll(){renderOV();rTable();rCorr();runSim();runTrading();}
+
+/* ═══ OVERVIEW ═══ */
+function renderOV(){
+  const fi=FI[FI.length-1]||0,cl=fi<20?'r':fi<35?'a':'g';
+  const set=(id,t,c)=>{const e=document.getElementById(id);e.textContent=t;if(c)e.className='kv '+c;};
+  set('kfi',fi.toFixed(1)+'%',cl);
+  set('kst',fi<20?'HIGH':fi<35?'WATCH':'NORMAL',cl);
+  set('kh1',CO.filter(c=>c.h1).length,null);
+  const dv=CO.reduce((s,c)=>s+(c.vol-c.bv),0)/CO.length;
+  set('kdv',(dv>=0?'+':'')+dv.toFixed(2)+'σ',dv>.3?'r':dv>0?'a':'g');
+
+  const mv=document.getElementById('ov-mv');mv.textContent=fi.toFixed(1)+'%';
+  mv.style.color=fi<20?'var(--rd)':fi<35?'var(--am)':'var(--tl)';
+  const mf=document.getElementById('ov-mf');mf.style.width=fi+'%';
+  mf.style.background=fi<20?'var(--rd)':fi<35?'var(--am)':'var(--bl)';
+
+  // Wind/Solar display
+  const le=window._liveEnergy;
+  const lastW=(le?.windMW?.slice(-1)[0]||0), lastS=(le?.solarMW?.slice(-1)[0]||0);
+  const lastB=(le?.bioMW?.slice(-1)[0]||0),  lastH=(le?.hydroMW?.slice(-1)[0]||0);
+  document.getElementById('ov-wind').textContent=lastW?lastW.toLocaleString():'—';
+  document.getElementById('ov-solar').textContent=lastS?lastS.toLocaleString():'—';
+
+  // Generation mix — use real MW values if available, else estimate from fi
+  const totalRenew=lastW+lastS+lastB+lastH||1;
+  const loadEst=le?(lastW+lastS+lastB+lastH)/(fi/100||.01):1;
+  const wPct=lastW?+(lastW/loadEst*100).toFixed(1):+(fi*.56).toFixed(1);
+  const sPct=lastS?+(lastS/loadEst*100).toFixed(1):+(fi*.37).toFixed(1);
+  const bPct=lastB?+(lastB/loadEst*100).toFixed(1):+(fi*.07).toFixed(1);
+  const hPct=lastH?+(lastH/loadEst*100).toFixed(1):+(fi*.04).toFixed(1);
+  const cvPct=+(100-wPct-sPct-bPct-hPct).toFixed(1);
+  document.getElementById('ov-mx').innerHTML=[
+    {n:'Wind',      p:wPct, c:'var(--bl)'},
+    {n:'Solar',     p:sPct, c:'var(--am)'},
+    {n:'Biomass',   p:bPct, c:'var(--tl)'},
+    {n:'Hydro',     p:hPct, c:'#818cf8'},
+    {n:'Conventional',p:Math.max(0,cvPct),c:'var(--tx3)'}
+  ].map(m=>`<div class="mix-row"><div class="mn2">${m.n}</div><div class="mt"><div class="mf" style="width:${Math.max(0,m.p)}%;background:${m.c};"></div></div><div class="mp">${Math.max(0,m.p)}%</div></div>`).join('');
+
+  // Alerts
+  const trg=CO.filter(c=>c.h1);
+  document.getElementById('ov-al').innerHTML=trg.length===0
+    ?`<div style="font-family:var(--mn);font-size:10px;color:var(--tx3);text-align:center;padding:10px 0;">No H₁ signals active</div>`
+    :trg.map(c=>`<div class="acard h1"><div class="at"><div class="atl">${c.ticker} · H₁</div><div class="atm">${new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</div></div><div class="ad">Feed-in: ${fi.toFixed(1)}% &lt;20% · Vol: ${c.vol.toFixed(2)}σ &gt;1.5σ</div></div>`).join('');
+
+  mk('ov-fi',{type:'line',data:{labels:LB,datasets:[
+    {data:FI,borderColor:'#5a96f0',backgroundColor:'rgba(90,150,240,.05)',fill:true,tension:.4,pointRadius:1.5,borderWidth:1.8},
+    {data:Array(H).fill(20),borderColor:'#e8a020',borderDash:[5,4],borderWidth:1.2,pointRadius:0,fill:false}
+  ]},options:{...CD,scales:{...CD.scales,y:{...CD.scales.y,min:0,max:100,ticks:{...CD.scales.y.ticks,callback:v=>v+'%'}}}}});
+
+  // Vol chart — all 8 companies
+  mk('ov-vl',{type:'line',
+    data:{labels:LB,datasets:[
+      ...CO.map(c=>({
+        label:c.ticker.replace('.DE',''),
+        data:c.vols,
+        borderColor:c.c,
+        backgroundColor:'transparent',
+        tension:.4,pointRadius:0,borderWidth:1.5
+      })),
+      {label:'1.5σ',data:Array(H).fill(1.5),borderColor:'#e05555',borderDash:[5,4],borderWidth:1.1,pointRadius:0,fill:false}
+    ]},
+    options:{...CD,
+      plugins:{...CD.plugins,legend:{display:true,position:'top',
+        labels:{font:{size:8},padding:8,boxWidth:10,boxHeight:2}}},
+      scales:{...CD.scales,y:{...CD.scales.y,min:0,max:3.8,ticks:{...CD.scales.y.ticks,callback:v=>v+'σ'}}}}});
+}
+
+/* ═══ SCREENER ═══ */
+let AF='all',SK='vol',SA=false,SEL=null;
+function setChip(f,b){AF=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');rTable();}
+function sBy(k){document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));event.target.classList.add('sorted');SK===k?SA=!SA:(SK=k,SA=false);rTable();}
+function rTable(){
+  const q=(document.getElementById('srch')||{}).value?.toLowerCase()||'';
+  let d=[...CO];
+  if(q)d=d.filter(c=>c.ticker.toLowerCase().includes(q)||c.name.toLowerCase().includes(q));
+  if(AF==='h1')d=d.filter(c=>c.h1);
+  else if(AF==='watch')d=d.filter(c=>c.watch);
+  else if(['chemical','energy','industrial'].includes(AF))d=d.filter(c=>c.sector===AF);
+  d.sort((a,b)=>{let va=a[SK],vb=b[SK];return typeof va==='string'?(SA?va.localeCompare(vb):vb.localeCompare(va)):(SA?va-vb:vb-va);});
+  const pl=c=>c.h1?'<span class="pill ph1">H₁ Signal</span>':c.watch?'<span class="pill pw">Watch</span>':'<span class="pill pok">Normal</span>';
+  document.getElementById('tbdy').innerHTML=d.length===0
+    ?`<tr><td colspan="9" style="text-align:center;padding:30px;font-family:var(--mn);font-size:11px;color:var(--tx3);">No results</td></tr>`
+    :d.map((c,i)=>`<tr class="${c.h1?'ar':''} ${c.ticker===SEL?'sel':''}" onclick="openDrw('${c.ticker}')" style="animation:fu .3s ${i*.03}s ease both;">
+      <td><div class="tk">${c.ticker}</div></td>
+      <td><div class="cn">${c.name}</div></td>
+      <td style="font-size:10px;color:var(--tx2);text-transform:capitalize;">${c.sector}</td>
+      <td class="r ${c.vol>1.5?'vh':'vn'}">${c.vol.toFixed(2)}σ</td>
+      <td class="r ${c.change>0?'up':'dn'}">${c.change>=0?'+':''}${c.change.toFixed(2)}%</td>
+      <td class="r">${c.price.toFixed(2)}</td>
+      <td class="r" style="color:var(--tx2);">${c.ei.toFixed(1)}x</td>
+      <td class="r" style="color:${c.corr<-.35?'var(--am)':'var(--tx2)'};">${c.corr.toFixed(3)}</td>
+      <td>${pl(c)}</td>
+    </tr>`).join('');
+}
+
+/* ═══ DRAWER ═══ */
+function openDrw(tk){
+  const c=CO.find(x=>x.ticker===tk);if(!c)return;
+  SEL=tk;rTable();
+  document.getElementById('d-tk').textContent=c.ticker;
+  document.getElementById('d-tk').style.color=c.c;
+  document.getElementById('d-nm').textContent=c.name+' · '+(isLive?'Live feed-in data':'Simulated');
+  document.getElementById('d-stats').innerHTML=`
+    <div class="dsc"><div class="dsl">Price</div><div class="dsv">€${c.price.toFixed(2)}</div></div>
+    <div class="dsc"><div class="dsl">1D Change</div><div class="dsv" style="color:${c.change>0?'var(--tl)':'var(--rd)'}">${c.change>=0?'+':''}${c.change.toFixed(2)}%</div></div>
+    <div class="dsc"><div class="dsl">Realized Vol</div><div class="dsv" style="color:${c.vol>1.5?'var(--am)':'var(--tl)'}">${c.vol.toFixed(2)}σ</div></div>
+    <div class="dsc"><div class="dsl">Pearson ρ</div><div class="dsv" style="color:${c.corr<-.3?'var(--am)':'var(--tx)'}">${c.corr.toFixed(3)}</div></div>`;
+  document.getElementById('d-bot').innerHTML=`<div style="background:var(--bg3);border-radius:var(--r);padding:12px;">
+    <div class="sr"><div class="sk">Energy Intensity</div><div class="sv2">${c.ei.toFixed(1)}× avg</div></div>
+    <div class="sr"><div class="sk">Sector</div><div class="sv2" style="text-transform:capitalize;">${c.sector}</div></div>
+    <div class="sr"><div class="sk">H₁ Status</div><div class="sv2" style="color:${c.h1?'var(--am)':c.watch?'var(--bl)':'var(--tl)'}">${c.h1?'Triggered':c.watch?'Watch':'Normal'}</div></div>
+    <div class="sr"><div class="sk">R² (feed-in)</div><div class="sv2">${(c.corr**2).toFixed(3)}</div></div>
+  </div>`;
+  mk('d-ch',{type:'line',data:{labels:LB,datasets:[
+    {data:c.vols,borderColor:c.c,backgroundColor:c.c+'22',fill:true,tension:.4,pointRadius:1.5,borderWidth:2},
+    {data:Array(H).fill(1.5),borderColor:'#e05555',borderDash:[4,3],borderWidth:1,pointRadius:0,fill:false}
+  ]},options:{...CD,scales:{...CD.scales,y:{...CD.scales.y,min:0,max:3.8,ticks:{...CD.scales.y.ticks,callback:v=>v+'σ'}}}}});
+  mk('d-sc',{type:'scatter',data:{datasets:[{data:FI.map((f,i)=>({x:f,y:c.vols[i]})),backgroundColor:c.c+'99',borderColor:c.c,pointRadius:4,borderWidth:1}]},
+    options:{...CD,scales:{x:{...CD.scales.x,min:0,max:90,ticks:{font:{size:9},callback:v=>v+'%'}},y:{...CD.scales.y,min:0,max:3.8,ticks:{font:{size:9},callback:v=>v+'σ'}}}}});
+  document.getElementById('drw').classList.add('open');
+}
+function closeDrw(){document.getElementById('drw').classList.remove('open');SEL=null;if(document.getElementById('p-sc').classList.contains('on'))rTable();}
+
+/* ═══ CORRELATION ═══ */
+let CA=null;
+function rCorr(){
+  if(!CA)CA=CO.map(c=>c.ticker);
+  document.getElementById('ctog').innerHTML=CO.map(c=>`<button class="tb ${CA.includes(c.ticker)?'on':''}" onclick="togC('${c.ticker}')" style="${CA.includes(c.ticker)?'border-color:'+c.c:''}">${c.ticker.replace('.DE','')}</button>`).join('');
+  mk('co-sc',{type:'scatter',
+    data:{datasets:CO.filter(c=>CA.includes(c.ticker)).map(c=>({label:c.ticker,data:FI.map((f,i)=>({x:f,y:c.vols[i]})),backgroundColor:c.c+'aa',borderColor:c.c,pointRadius:5,borderWidth:1}))},
+    options:{...CD,plugins:{...CD.plugins,legend:{display:true,position:'top',labels:{font:{size:9},padding:10,boxWidth:8,boxHeight:8}}},
+    scales:{x:{...CD.scales.x,min:0,max:90,title:{display:true,text:'Renewable Feed-in %',font:{size:10}},ticks:{font:{size:9},callback:v=>v+'%'}},
+      y:{...CD.scales.y,min:0,max:3.8,title:{display:true,text:'Realized Volatility σ',font:{size:10}},ticks:{font:{size:9},callback:v=>v+'σ'}}}}});
+  document.getElementById('co-mx').innerHTML=CO.map(c=>{
+    const sg=Math.abs(c.corr)>.5?'Strong':Math.abs(c.corr)>.3?'Moderate':'Weak';
+    return`<tr><td><span style="color:${c.c};font-size:11px;">${c.ticker}</span></td><td class="r" style="color:${c.corr<-.3?'var(--am)':'var(--tx2)'};">${c.corr.toFixed(3)}</td><td class="r" style="color:${sg==='Strong'?'var(--tl)':sg==='Moderate'?'var(--am)':'var(--tx3)'};">${sg}</td><td class="r" style="font-size:10px;color:var(--tx2);">${c.corr<-.3?'Supports H₁':c.corr<0?'Weak':'No support'}</td></tr>`;
+  }).join('');
+  document.getElementById('co-r2').innerHTML=CO.map(c=>`<div style="margin-bottom:9px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-family:var(--mn);font-size:10px;"><span style="color:${c.c};">${c.ticker.replace('.DE','')}</span><span>R²=${(c.corr**2).toFixed(3)}</span></div><div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${(c.corr**2*100).toFixed(1)}%;background:${c.c};border-radius:2px;"></div></div></div>`).join('');
+  const avg=CO.reduce((s,c)=>s+c.corr,0)/CO.length;
+  document.getElementById('co-vd').innerHTML=avg<-.2?`<span style="color:var(--tl);">● H₁ Supported</span><br>Avg ρ = ${avg.toFixed(3)} — consistent negative correlation across firms.`:`<span style="color:var(--tx3);">● Inconclusive</span><br>Avg ρ = ${avg.toFixed(3)}.`;
+}
+function togC(tk){const i=(CA||[]).indexOf(tk);if(i>-1)CA.splice(i,1);else CA.push(tk);rCorr();}
+
+/* ═══ SCENARIO ═══ */
+function runSim(){
+  if(!CO.length)return;
+  const fi=+document.getElementById('si-f').value;
+  const gv=+document.getElementById('si-g').value;
+  document.getElementById('si-fv').textContent=fi+'%';
+  document.getElementById('si-gv').textContent=gv.toFixed(1)+'×';
+  const sc=fi<20?'HIGH':fi<35?'ELEVATED':'NORMAL';
+  const scC=fi<20?'var(--rd)':fi<35?'var(--am)':'var(--tl)';
+  const pr=CO.map(c=>{
+    const vp=c.bv*(fi<20?2.0:fi<35?1.3:.75)*gv*c.se;
+    const tg=fi<20&&vp>1.5;
+    const pb=fi<20?Math.min(.95,.6+c.se*.15):fi<35?Math.min(.55,.2+c.se*.1):Math.max(.02,.15-c.se*.05);
+    return{c,vp,tg,pb};
+  });
+  document.getElementById('si-vd').innerHTML=`Grid stress: <span style="color:${scC};font-weight:500;">${sc}</span> · Feed-in: ${fi}% · <span style="color:var(--am);">${pr.filter(p=>p.tg).length}/${CO.length}</span> companies predicted H₁`;
+  document.getElementById('si-co').innerHTML=pr.map(p=>`<div class="sco ${p.tg?'fired':''}"><div class="stk2" style="color:${p.c.c};">${p.c.ticker.replace('.DE','')}</div><div class="sv3" style="color:${p.vp>1.5?'var(--am)':'var(--tl)'};">${p.vp.toFixed(2)}σ</div><div class="sbg ${p.tg?'f':''}">${p.tg?'H₁ ▲':'Normal'}</div></div>`).join('');
+  mk('si-ch',{type:'bar',data:{labels:pr.map(p=>p.c.ticker.replace('.DE','')),datasets:[{data:pr.map(p=>+(p.pb*100).toFixed(1)),
+    backgroundColor:pr.map(p=>p.tg?'#e8a020aa':'#5a96f0aa'),borderColor:pr.map(p=>p.tg?'#e8a020':'#5a96f0'),borderWidth:1,borderRadius:4}]},
+    options:{...CD,scales:{x:{...CD.scales.x,ticks:{font:{size:9}}},y:{...CD.scales.y,min:0,max:100,ticks:{font:{size:9},callback:v=>v+'%'}}}}});
+}
+
+/* ═══ TRADING SIGNALS ═══ */
+// β = price elasticity to feed-in change
+// Derived from energy intensity (ei) and historical sensitivity (se)
+// Positive β: feed-in ↑ → electricity costs ↓ → margins ↑ → stock ↑
+// Energy companies (RWE, EON) have inverse β — higher feed-in compresses their margins
+function getBeta(m){
+  if(m.sector==='energy'&&(m.ticker==='RWE.DE'||m.ticker==='EOAN.DE'))
+    return -(m.ei/4.8)*0.08*m.se; // generators hurt by falling prices
+  return (m.ei/4.8)*0.13*m.se;   // consumers benefit from falling prices
+}
+
+function getSignal(dp){
+  if(dp>2)  return {label:'Strong Buy', cls:'sig-sb', icon:'▲▲'};
+  if(dp>.5) return {label:'Buy',         cls:'sig-b',  icon:'▲'};
+  if(dp>-.5)return {label:'Hold',        cls:'sig-h',  icon:'–'};
+  if(dp>-2) return {label:'Sell',        cls:'sig-s',  icon:'▼'};
+  return      {label:'Strong Sell',      cls:'sig-ss', icon:'▼▼'};
+}
+
+function setDelta(v){
+  document.getElementById('tr-delta').value=v;
+  runTrading();
+}
+
+function runTrading(){
+  if(!CO.length) return;
+  const delta=parseFloat(document.getElementById('tr-delta').value)||0;
+  const curFI=FI[FI.length-1]||35;
+  const projFI=Math.min(100,Math.max(0,curFI+delta));
+
+  document.getElementById('tr-cur-fi').textContent=curFI.toFixed(1)+'%';
+  document.getElementById('tr-proj-fi').textContent=projFI.toFixed(1)+'%';
+
+  // Compute impact per company
+  const impacts=CO.map(c=>{
+    const beta=getBeta(c);
+    const dp=+(beta*delta).toFixed(2);
+    const sig=getSignal(dp);
+    return{...c,beta,dp,sig};
+  });
+
+  // Summary line
+  const buys=impacts.filter(c=>c.dp>0.5).length;
+  const sells=impacts.filter(c=>c.dp<-0.5).length;
+  const sumColor=delta>0?'var(--tl)':delta<0?'var(--rd)':'var(--tx2)';
+  document.getElementById('tr-summary').innerHTML=
+    `<span style="color:${sumColor};">${delta>=0?'+':''}${delta}% feed-in</span>`+
+    ` &nbsp;·&nbsp; ${buys} Buy &nbsp;·&nbsp; ${sells} Sell`;
+
+  // Impact bars
+  const maxAbs=Math.max(0.1,...impacts.map(c=>Math.abs(c.dp)));
+  document.getElementById('tr-bars').innerHTML=impacts.map(c=>{
+    const pct=Math.abs(c.dp)/maxAbs*45; // max 45% of half-width
+    const isPos=c.dp>=0;
+    const barColor=isPos?'var(--tl)':'var(--rd)';
+    const barLeft=isPos?'50%':`calc(50% - ${pct}%)`;
+    return`<div class="impact-row">
+      <div class="imp-tick" style="color:${c.c};">${c.ticker.replace('.DE','')}</div>
+      <div class="imp-bar-wrap">
+        <div class="imp-zero"></div>
+        <div class="imp-bar" style="background:${barColor};width:${pct}%;left:${isPos?'50%':`calc(50% - ${pct}%)`};"></div>
+      </div>
+      <div class="imp-pct" style="color:${isPos?'var(--tl)':'var(--rd)'};">${c.dp>=0?'+':''}${c.dp}%</div>
+      <div class="imp-sig"><span class="sig-pill ${c.sig.cls}">${c.sig.icon} ${c.sig.label}</span></div>
+    </div>`;
+  }).join('');
+
+  // Beta table
+  document.getElementById('tr-beta').innerHTML=CO.map(c=>{
+    const beta=getBeta(c);
+    const dir=beta>0?`<span style="color:var(--tl);">+covar</span>`:`<span style="color:var(--rd);">−covar</span>`;
+    return`<tr>
+      <td style="color:${c.c};">${c.ticker.replace('.DE','')}</td>
+      <td style="text-align:right;color:${beta>0?'var(--tl)':'var(--rd)'};">${beta>=0?'+':''}${beta.toFixed(3)}</td>
+      <td style="text-align:right;color:var(--tx2);">${c.ei.toFixed(1)}x</td>
+      <td style="text-align:right;">${dir}</td>
+    </tr>`;
+  }).join('');
+
+  // Bar chart
+  mk('tr-chart',{type:'bar',
+    data:{
+      labels:impacts.map(c=>c.ticker.replace('.DE','')),
+      datasets:[{
+        data:impacts.map(c=>c.dp),
+        backgroundColor:impacts.map(c=>c.dp>=0?'rgba(20,201,158,.7)':'rgba(224,85,85,.7)'),
+        borderColor:impacts.map(c=>c.dp>=0?'#14c99e':'#e05555'),
+        borderWidth:1,borderRadius:4
+      }]
+    },
+    options:{...CD,
+      plugins:{...CD.plugins,tooltip:{...CD.plugins.tooltip,callbacks:{label:ctx=>`${ctx.raw>=0?'+':''}${ctx.raw}% predicted price change`}}},
+      scales:{
+        x:{...CD.scales.x,ticks:{font:{size:9}}},
+        y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>(v>=0?'+':'')+v+'%'},
+          grid:{...CD.scales.y.grid,color:'rgba(255,255,255,.04)'},
+          afterDataLimits:s=>{const m=Math.max(Math.abs(s.min),Math.abs(s.max),.5);s.min=-m*1.2;s.max=m*1.2;}}
+      }
+    }
+  });
+
+  // Elasticity lines chart — full range −30 to +30
+  const xPts=Array.from({length:61},(_,i)=>i-30);
+  const topCos=impacts.slice().sort((a,b)=>Math.abs(getBeta(b))-Math.abs(getBeta(a))).slice(0,4);
+  mk('tr-elastic',{type:'line',
+    data:{
+      labels:xPts.map(x=>(x>=0?'+':'')+x+'%'),
+      datasets:[
+        ...topCos.map(c=>({
+          label:c.ticker.replace('.DE',''),
+          data:xPts.map(x=>+(getBeta(c)*x).toFixed(2)),
+          borderColor:c.c,backgroundColor:'transparent',
+          tension:0,pointRadius:0,borderWidth:1.5
+        })),
+        {label:'Zero line',data:xPts.map(()=>0),borderColor:'rgba(255,255,255,.1)',
+         borderDash:[3,3],pointRadius:0,borderWidth:1,fill:false}
+      ]
+    },
+    options:{...CD,
+      plugins:{...CD.plugins,legend:{display:true,position:'top',labels:{font:{size:9},padding:10,boxWidth:10,boxHeight:2}}},
+      scales:{
+        x:{...CD.scales.x,ticks:{font:{size:9},maxTicksLimit:10},title:{display:true,text:'ΔFeed-in %',font:{size:9}}},
+        y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>(v>=0?'+':'')+v+'%'},title:{display:true,text:'ΔPrice %',font:{size:9}}}
+      }
+    }
+  });
+}
+
+/* ═══ START ═══ */
+boot();
+</script>
+</body>
+</html>
