@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PowerShock · Energy-Market Intelligence · DADM Group 5</title>
+<meta name="description" content="PowerShock analyzes whether changes in German renewable energy feed-in can act as an early warning signal for DAX stock volatility.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@300;400;500&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#06080c;--bg2:#0d1017;--bg3:#131820;--bg4:#1a2130;
+  --b:rgba(255,255,255,0.07);--b2:rgba(255,255,255,0.15);
+  --tx:#e2e6f3;--tx2:#7a8099;--tx3:#42485a;
+  --am:#f0a820;--am2:rgba(240,168,32,0.15);--am3:rgba(240,168,32,0.06);
+  --tl:#12d4a6;--tl2:rgba(18,212,166,0.13);--tl3:rgba(18,212,166,0.05);
+  --rd:#e85858;--rd2:rgba(232,88,88,0.13);
+  --bl:#5f9cf8;--bl2:rgba(95,156,248,0.13);
+  --yw:#f59e0b;--yw2:rgba(245,158,11,0.12);
+  --dp:'Playfair Display',serif;--mn:'DM Mono',monospace;--ss:'Space Grotesk',sans-serif;
+  --r:10px;--rl:14px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:15px;}
+body{background:var(--bg);color:var(--tx);font-family:var(--ss);min-height:100vh;overflow-x:hidden;}
+body::after{content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);
+  width:900px;height:500px;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(240,168,32,0.05) 0%,rgba(18,212,166,0.03) 40%,transparent 70%);}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:64px 64px;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:500;background:rgba(6,8,12,.96);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--b);height:62px;padding:0 1.5rem;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(240,168,32,.3),rgba(18,212,166,.2),transparent);}
+.brand{display:flex;align-items:center;gap:12px;}
+.bmark{width:34px;height:34px;background:linear-gradient(135deg,var(--am),#e8620a);
+  border-radius:9px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 16px rgba(240,168,32,0.35);}
+.bmark svg{width:16px;height:16px;}
+.bname{font-family:var(--dp);font-size:17px;font-weight:600;}
+.btag{font-family:var(--mn);font-size:9px;color:var(--tx2);letter-spacing:.05em;margin-top:1px;}
+.ntabs{display:flex;gap:3px;}
+.ntab{font-family:var(--mn);font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+  padding:6px 13px;border-radius:7px;border:none;background:transparent;
+  color:var(--tx2);cursor:pointer;transition:all .2s;}
+.ntab:hover{color:var(--tx);background:var(--bg3);}
+.ntab.on{color:var(--am);background:var(--am3);border:1px solid rgba(240,168,32,.25);}
+.nright{display:flex;align-items:center;gap:10px;}
+.dbadge{display:flex;align-items:center;gap:6px;font-family:var(--mn);font-size:10px;
+  color:var(--tl);padding:5px 12px;border:1px solid rgba(18,212,166,.3);border-radius:20px;background:var(--tl3);}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--tl);animation:blink 2s infinite;flex-shrink:0;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+.clk{font-family:var(--mn);font-size:11px;color:var(--tx3);}
+
+/* PAGES */
+.page{position:relative;z-index:1;display:none;animation:pi .35s ease;}
+.page.on{display:block;}
+@keyframes pi{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fu{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.c{max-width:1400px;margin:0 auto;padding:1.75rem;}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);
+  overflow:hidden;transition:border-color .25s,box-shadow .25s;box-shadow:var(--shadow);}
+.card:hover{border-color:var(--b2);box-shadow:0 6px 32px rgba(0,0,0,.5);}
+.ch{padding:16px 20px;border-bottom:1px solid var(--b);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(255,255,255,0.025) 0%,transparent 100%);}
+.ct{font-size:13px;font-weight:600;letter-spacing:-0.01em;}
+.cb{padding:20px;}
+.ct-sub{font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:2px;}
+
+/* HERO */
+.hero{position:relative;z-index:1;padding:2.5rem 1.75rem 0;max-width:1400px;margin:0 auto;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mn);font-size:10px;
+  color:var(--tl);padding:5px 12px;border:1px solid rgba(18,212,166,.3);border-radius:20px;
+  background:var(--tl3);margin-bottom:14px;letter-spacing:.04em;}
+.hero-title{font-family:var(--dp);font-size:36px;font-weight:600;line-height:1.2;letter-spacing:-0.02em;margin-bottom:12px;}
+.hero-title span{background:linear-gradient(135deg,var(--am),#f85c20);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero-oneliner{font-size:15px;color:var(--tx2);line-height:1.7;max-width:680px;margin-bottom:20px;}
+.hero-oneliner strong{color:var(--tx);}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;}
+.kpi{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);
+  padding:16px 18px;transition:all .25s;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--kpi-color,var(--am));opacity:.6;}
+.kpi:hover{border-color:var(--b2);transform:translateY(-2px);}
+.kpi-label{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2);margin-bottom:8px;}
+.kpi-val{font-family:var(--mn);font-size:24px;font-weight:500;line-height:1;color:var(--kpi-color,var(--am));}
+.kpi-foot{font-family:var(--mn);font-size:10px;color:var(--tx3);margin-top:5px;}
+
+/* HOW TO READ */
+.htr{background:linear-gradient(135deg,rgba(95,156,248,0.06) 0%,rgba(18,212,166,0.04) 100%);
+  border:1px solid var(--b2);border-radius:var(--rl);padding:20px 24px;margin-bottom:24px;
+  position:relative;z-index:1;}
+.htr-title{font-size:13px;font-weight:600;color:var(--bl);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.htr-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.htr-step{display:flex;align-items:flex-start;gap:10px;}
+.htr-num{width:24px;height:24px;border-radius:50%;background:var(--bl2);color:var(--bl);
+  font-family:var(--mn);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.htr-text{font-size:12px;color:var(--tx2);line-height:1.6;}
+.htr-text strong{color:var(--tx);}
+
+/* DATA FLOW */
+.flow{display:flex;align-items:center;gap:0;margin-bottom:24px;flex-wrap:wrap;position:relative;z-index:1;}
+.flow-box{background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);
+  padding:12px 16px;flex:1;min-width:140px;text-align:center;transition:border-color .2s;}
+.flow-box:hover{border-color:var(--b2);}
+.flow-icon{font-size:18px;margin-bottom:5px;}
+.flow-label{font-size:12px;font-weight:600;color:var(--tx);margin-bottom:2px;}
+.flow-sub{font-family:var(--mn);font-size:9px;color:var(--tx3);}
+.flow-arrow{color:var(--tx3);font-size:16px;padding:0 6px;flex-shrink:0;}
+
+/* KEY FINDINGS */
+.findings{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;position:relative;z-index:1;}
+.finding{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);
+  padding:18px 20px;border-left:3px solid var(--tl);transition:all .2s;}
+.finding:nth-child(2){border-left-color:var(--am);}
+.finding:nth-child(3){border-left-color:var(--bl);}
+.finding-icon{font-size:20px;margin-bottom:8px;}
+.finding-title{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:6px;}
+.finding-text{font-size:12px;color:var(--tx2);line-height:1.7;}
+
+/* COLOR LEGEND */
+.legend-bar{display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);
+  padding:12px 18px;margin-bottom:24px;position:relative;z-index:1;}
+.legend-title{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-right:6px;}
+.leg-item{display:flex;align-items:center;gap:6px;font-family:var(--mn);font-size:10px;color:var(--tx2);}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* TOOLTIPS */
+.tip-wrap{position:relative;display:inline-flex;align-items:center;gap:4px;}
+.tip-icon{width:14px;height:14px;border-radius:50%;background:var(--bg3);border:1px solid var(--b2);
+  color:var(--tx3);font-size:8px;display:inline-flex;align-items:center;justify-content:center;
+  cursor:help;flex-shrink:0;font-family:var(--mn);transition:all .15s;}
+.tip-icon:hover{border-color:var(--bl);color:var(--bl);}
+.tip-popup{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:var(--bg4);border:1px solid var(--b2);border-radius:var(--r);
+  padding:10px 14px;width:240px;font-family:var(--mn);font-size:11px;color:var(--tx2);
+  line-height:1.6;z-index:100;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.tip-icon:hover + .tip-popup,.tip-popup:hover{display:block;}
+
+/* BUSINESS INTERPRETATION */
+.biz-box{background:linear-gradient(135deg,rgba(95,156,248,.06),rgba(18,212,166,.03));
+  border:1px solid rgba(95,156,248,.2);border-radius:var(--r);padding:14px 18px;margin-top:14px;}
+.biz-label{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--bl);margin-bottom:6px;font-weight:600;}
+.biz-text{font-size:12px;color:var(--tx2);line-height:1.7;}
+
+/* SCREENER */
+.stb{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.sw{position:relative;flex:1;min-width:160px;max-width:240px;}
+.si{width:100%;background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);
+  padding:9px 14px 9px 34px;font-family:var(--mn);font-size:12px;color:var(--tx);outline:none;transition:border-color .2s;}
+.si::placeholder{color:var(--tx3);}.si:focus{border-color:var(--am);}
+.sico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--tx3);width:14px;height:14px;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.04em;
+  padding:6px 13px;border-radius:20px;border:1px solid var(--b);background:transparent;
+  color:var(--tx2);cursor:pointer;transition:all .2s;}
+.chip:hover{border-color:var(--b2);color:var(--tx);}
+.chip.on{background:var(--am2);border-color:rgba(240,168,32,.45);color:var(--am);}
+.type-consumer{display:inline-flex;font-family:var(--mn);font-size:10px;padding:3px 8px;border-radius:4px;
+  background:var(--am2);color:var(--am);border:1px solid rgba(240,168,32,.3);text-transform:uppercase;font-weight:500;}
+.type-generator{display:inline-flex;font-family:var(--mn);font-size:10px;padding:3px 8px;border-radius:4px;
+  background:var(--tl2);color:var(--tl);border:1px solid rgba(18,212,166,.3);text-transform:uppercase;font-weight:500;}
+.sector-badge{display:inline-flex;font-family:var(--mn);font-size:9px;padding:2px 7px;border-radius:3px;
+  background:var(--bg3);color:var(--tx3);border:1px solid var(--b);text-transform:uppercase;}
+
+table{width:100%;border-collapse:collapse;}
+thead th{text-align:left;padding:10px 12px;font-family:var(--mn);font-size:10px;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--tx3);border-bottom:1px solid var(--b);white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:hover{color:var(--tx2);}thead th.sorted{color:var(--am);}
+thead th.r,td.r{text-align:right;}
+tbody tr{border-bottom:1px solid var(--b);cursor:pointer;transition:background .1s;}
+tbody tr:hover{background:var(--bg3);}
+tbody tr.sel{background:var(--bg4)!important;border-left:2px solid var(--am);}
+td{padding:12px 12px;font-family:var(--mn);font-size:12px;white-space:nowrap;}
+.tk{font-size:13px;font-weight:500;}.cn{font-size:11px;color:var(--tx2);}
+.up{color:var(--tl);}.dn{color:var(--rd);}
+
+/* DRAWER */
+#drw{position:fixed;top:62px;right:0;bottom:0;width:420px;z-index:400;
+  background:var(--bg2);border-left:1px solid var(--b2);
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
+#drw.open{transform:translateX(0);}
+.dh{padding:18px;border-bottom:1px solid var(--b);display:flex;align-items:flex-start;justify-content:space-between;}
+.dtk{font-family:var(--dp);font-size:22px;font-weight:600;}
+.dnm{font-family:var(--mn);font-size:10px;color:var(--tx2);margin-top:3px;}
+.dcl{width:28px;height:28px;border-radius:6px;border:1px solid var(--b);background:transparent;color:var(--tx2);cursor:pointer;display:grid;place-items:center;font-size:14px;}
+.db{flex:1;overflow-y:auto;padding:18px;}
+.ds{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px;}
+.dsc{background:var(--bg3);border-radius:var(--r);padding:12px;}
+.dsl{font-family:var(--mn);font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-bottom:5px;}
+.dsv{font-family:var(--mn);font-size:17px;font-weight:500;}
+.dcw{margin-bottom:18px;}
+.dcll{font-family:var(--mn);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:8px;}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--b);}
+.sr:last-child{border:none;}
+.sk{font-family:var(--mn);font-size:10px;color:var(--tx2);}.sv2{font-family:var(--mn);font-size:11px;font-weight:500;}
+
+/* CORR */
+.cl2{display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start;}
+.trow{display:flex;gap:5px;flex-wrap:wrap;}
+.tb{font-family:var(--mn);font-size:10px;padding:4px 10px;border-radius:4px;
+  border:1px solid var(--b);background:transparent;color:var(--tx2);cursor:pointer;transition:all .15s;}
+.tb:hover{border-color:var(--b2);color:var(--tx);}
+.tb.on{background:var(--bl2);border-color:rgba(95,156,248,.4);color:var(--bl);}
+
+/* GRANGER */
+.gr-sig{color:var(--tl);font-weight:600;}
+.gr-no{color:var(--tx3);}
+.gr-highlight{background:rgba(18,212,166,.04);}
+
+/* TRADING */
+.tr-grid{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;}
+.slbl{font-family:var(--mn);font-size:12px;color:var(--tx2);margin-bottom:6px;display:flex;justify-content:space-between;}
+input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:var(--bg3);border-radius:2px;outline:none;cursor:pointer;margin:10px 0;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+  background:var(--am);border:2px solid var(--bg2);cursor:pointer;box-shadow:0 0 8px rgba(240,168,32,.4);}
+.fi-presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.preset{font-family:var(--mn);font-size:11px;padding:5px 11px;border-radius:5px;border:1px solid var(--b);
+  background:transparent;color:var(--tx2);cursor:pointer;transition:all .15s;}
+.preset:hover{border-color:var(--b2);color:var(--tx);}
+.preset.neg{color:var(--rd);border-color:rgba(232,88,88,.25);}
+.preset.pos{color:var(--tl);border-color:rgba(18,212,166,.25);}
+.impact-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--b);}
+.impact-row:last-child{border:none;}
+.imp-tick{font-family:var(--mn);font-size:12px;font-weight:500;width:56px;flex-shrink:0;}
+.imp-bar-wrap{flex:1;position:relative;height:22px;display:flex;align-items:center;}
+.imp-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--b2);}
+.imp-bar{position:absolute;height:9px;border-radius:2px;transition:width .45s ease;top:6px;}
+.imp-pct{font-family:var(--mn);font-size:13px;font-weight:500;width:64px;text-align:right;flex-shrink:0;}
+.imp-sig{width:90px;flex-shrink:0;text-align:right;}
+.sp{display:inline-flex;font-size:10px;font-family:var(--mn);letter-spacing:.04em;
+  text-transform:uppercase;padding:4px 9px;border-radius:5px;font-weight:500;white-space:nowrap;}
+.ssb{background:rgba(18,212,166,.18);color:var(--tl);border:1px solid rgba(18,212,166,.3);}
+.sb{background:rgba(18,212,166,.08);color:#5ae0c2;border:1px solid rgba(18,212,166,.15);}
+.sh{background:var(--bg3);color:var(--tx3);border:1px solid var(--b);}
+.ss{background:rgba(232,88,88,.08);color:#e07a7a;border:1px solid rgba(232,88,88,.15);}
+.sss{background:rgba(232,88,88,.18);color:var(--rd);border:1px solid rgba(232,88,88,.3);}
+
+/* GRANGER PAGE */
+.gr-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
+.gr-info{background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);padding:18px 20px;}
+
+/* OVERVIEW GRID */
+.ov-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start;}
+
+/* MIX */
+.mix-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.mn2{font-family:var(--mn);font-size:10px;color:var(--tx2);width:86px;flex-shrink:0;}
+.mt{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.mf{height:100%;border-radius:2px;}
+.mp{font-family:var(--mn);font-size:10px;color:var(--tx);width:40px;text-align:right;}
+
+/* CONCLUSION */
+.conclusion{background:linear-gradient(135deg,rgba(240,168,32,.06) 0%,rgba(18,212,166,.04) 100%);
+  border:1px solid var(--b2);border-radius:var(--rl);padding:28px 32px;margin-top:32px;position:relative;z-index:1;}
+.conc-title{font-family:var(--dp);font-size:20px;font-weight:600;color:var(--tx);margin-bottom:12px;}
+.conc-text{font-size:14px;color:var(--tx2);line-height:1.8;max-width:760px;}
+.conc-text strong{color:var(--tx);}
+
+/* DISCLAIMER */
+.disclaimer{background:var(--bg3);border:1px solid var(--b);border-radius:var(--r);
+  padding:14px 18px;margin-top:16px;display:flex;gap:10px;align-items:flex-start;position:relative;z-index:1;}
+.disc-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.disc-text{font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.7;}
+.disc-text strong{color:var(--tx2);}
+
+/* PAGE HEADER */
+.ph{margin-bottom:1.5rem;animation:fu .4s ease;}
+.ph-title{font-family:var(--dp);font-size:28px;font-weight:600;line-height:1.2;letter-spacing:-0.02em;}
+.ph-title span{background:linear-gradient(135deg,var(--am),#f85c20);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.ph-sub{font-family:var(--mn);font-size:11px;color:var(--tx2);margin-top:6px;line-height:1.6;}
+
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+
+/* RESPONSIVE */
+@media(max-width:1100px){.ov-grid,.cl2,.tr-grid,.gr-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(3,1fr);}.htr-steps{grid-template-columns:repeat(2,1fr);}.findings{grid-template-columns:1fr;}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.htr-steps{grid-template-columns:1fr;}.flow{flex-direction:column;}.flow-arrow{transform:rotate(90deg);}.ntabs{display:none;}#drw{width:100%;}.findings{grid-template-columns:1fr;}}
+@media(max-width:480px){.kpi-grid{grid-template-columns:1fr 1fr;}.hero-title{font-size:26px;}}
+
+@media(max-width:800px){
+  #p-tx .grid-tx{grid-template-columns:1fr!important;}
+  #p-tx [style*="grid-template-columns:1fr auto 1fr auto 1fr"]{display:flex!important;flex-direction:column!important;}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand">
+    <div class="bmark"><svg viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="#07090d" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+    <div><div class="bname">PowerShock</div><div class="btag">Energy-Market Intelligence · DADM Group 5</div></div>
+  </div>
+  <div class="ntabs">
+    <button class="ntab on" onclick="go('ov',this)">Overview</button>
+    <button class="ntab" onclick="go('sc',this)">Stock Screener</button>
+    <button class="ntab" onclick="go('co',this)">Correlation</button>
+    <button class="ntab" onclick="go('gr',this)">Granger Causality</button>
+    <button class="ntab" onclick="go('tr',this)">Trading Signals</button>
+    <button class="ntab" onclick="go('tx',this)">⚡ Transmission &amp; Lags</button>
+  </div>
+  <div class="nright">
+    <div class="dbadge"><div class="ldot"></div>Real Data · Q1 2026</div>
+    <div class="clk" id="clk">--:--:--</div>
+  </div>
+</nav>
+
+<!-- DRAWER -->
+<div id="drw">
+  <div class="dh">
+    <div><div class="dtk" id="d-tk">—</div><div class="dnm" id="d-nm">—</div></div>
+    <button class="dcl" onclick="closeDrw()">✕</button>
+  </div>
+  <div class="db">
+    <div class="ds" id="d-stats"></div>
+    <div class="dcw"><div class="dcll">Stock Price · Q1 2026 (Normalised to 100)</div>
+      <div style="position:relative;height:130px;"><canvas id="d-price"></canvas></div></div>
+    <div class="dcw"><div class="dcll">Realized Volatility (8h rolling %)</div>
+      <div style="position:relative;height:120px;"><canvas id="d-vol"></canvas></div></div>
+    <div id="d-bot"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: OVERVIEW ══ -->
+<div class="page on" id="p-ov">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge"><div class="ldot"></div>ESB Business School · DADM Group 5 · Q1 2026</div>
+  <div class="hero-title">PowerShock <span>Energy-Market Intelligence</span></div>
+  <div class="hero-oneliner">
+    PowerShock analyzes whether changes in <strong>German renewable energy feed-in</strong> may influence <strong>wholesale electricity prices</strong> (EPEX Spot), and whether those energy-market signals can act as an <strong>early warning indicator for DAX stock volatility</strong> — testing the full transmission chain from grid dynamics to equity risk.
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-color:var(--bl)">
+      <div class="kpi-label">Observations</div>
+      <div class="kpi-val">557</div>
+      <div class="kpi-foot">Hourly data points · Q1 2026</div>
+    </div>
+    <div class="kpi" style="--kpi-color:var(--tl)">
+      <div class="kpi-label">Trading Days</div>
+      <div class="kpi-val">62</div>
+      <div class="kpi-foot">Jan 2 – Mar 31, 2026</div>
+    </div>
+    <div class="kpi" style="--kpi-color:var(--am)">
+      <div class="kpi-label">DAX Companies</div>
+      <div class="kpi-val">6</div>
+      <div class="kpi-foot">Automotive · Industrial · Utilities</div>
+    </div>
+    <div class="kpi" style="--kpi-color:var(--tl)">
+      <div class="kpi-label">Granger Significant</div>
+      <div class="kpi-val">2</div>
+      <div class="kpi-foot">SIE &amp; EOAN at p &lt; 0.05</div>
+    </div>
+    <div class="kpi" style="--kpi-color:var(--rd)">
+      <div class="kpi-label">H₁ Threshold</div>
+      <div class="kpi-val">&lt;20%</div>
+      <div class="kpi-foot">Renewable share triggers alert</div>
+    </div>
+  </div>
+
+  <!-- HOW TO READ -->
+  <div class="htr">
+    <div class="htr-title">📖 How to Read This Dashboard</div>
+    <div class="htr-steps">
+      <div class="htr-step">
+        <div class="htr-num">1</div>
+        <div class="htr-text"><strong>Renewable Feed-in</strong> shows what share of Germany's electricity grid is powered by renewables (wind, solar, biomass, hydro).</div>
+      </div>
+      <div class="htr-step">
+        <div class="htr-num">2</div>
+        <div class="htr-text"><strong>Low renewable share</strong> forces gas and coal plants online, raising wholesale electricity prices — the Merit-Order Effect.</div>
+      </div>
+      <div class="htr-step">
+        <div class="htr-num">3</div>
+        <div class="htr-text"><strong>Energy-intensive companies</strong> may react through higher stock volatility when electricity costs spike unexpectedly.</div>
+      </div>
+      <div class="htr-step">
+        <div class="htr-num">4</div>
+        <div class="htr-text"><strong>This dashboard</strong> checks whether this relationship appears in real Q1 2026 data using correlation, Granger causality, and regression.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA FLOW -->
+  <div style="margin-bottom:8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);">Data Pipeline</div>
+  <div class="flow" style="margin-bottom:24px;">
+    <div class="flow-box">
+      <div class="flow-icon">⚡</div>
+      <div class="flow-label">SMARD.de</div>
+      <div class="flow-sub">Renewable generation<br>Wind · Solar · Bio · Hydro</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="flow-icon">📈</div>
+      <div class="flow-label">Yahoo Finance</div>
+      <div class="flow-sub">Hourly OHLC prices<br>6 DAX companies</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="flow-icon">🔧</div>
+      <div class="flow-label">Feature Engineering</div>
+      <div class="flow-sub">Feed-in % · Log returns<br>Rolling realized vol</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="flow-icon">🔬</div>
+      <div class="flow-label">Statistical Analysis</div>
+      <div class="flow-sub">Pearson r · Granger<br>OLS · Random Forest</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box" style="border-color:var(--am);background:var(--am3);">
+      <div class="flow-icon">📊</div>
+      <div class="flow-label" style="color:var(--am);">Dashboard Signals</div>
+      <div class="flow-sub">Trading signals<br>Early-warning indicators</div>
+    </div>
+  </div>
+
+  <!-- KEY FINDINGS -->
+  <div style="margin-bottom:8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);">Key Findings</div>
+  <div class="findings">
+    <div class="finding">
+      <div class="finding-icon">✅</div>
+      <div class="finding-title">Granger Causality Detected</div>
+      <div class="finding-text">Siemens (SIE) and E.ON (EOAN) showed statistically significant Granger-causality signals. Past renewable feed-in levels help predict their volatility 1–2 trading days ahead (p &lt; 0.05).</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">⚠️</div>
+      <div class="finding-title">Asymmetric Industry Response</div>
+      <div class="finding-text">Automotive stocks (BMW, MBG, VOW3) showed weaker or no significant relationship. Energy utilities are more directly exposed to electricity price swings than manufacturers who hedge via long-term contracts.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">📡</div>
+      <div class="finding-title">Diagnostic Signal, Not Standalone Predictor</div>
+      <div class="finding-text">Renewable feed-in works better as an early-warning monitoring tool than a standalone prediction model. Low R² values confirm it is one factor among many — not the sole volatility driver.</div>
+    </div>
+  </div>
+
+  <!-- COLOR LEGEND -->
+  <div class="legend-bar">
+    <span class="legend-title">Color Guide:</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--tl);"></span>Low risk / Renewable signal</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--am);"></span>Warning zone / Threshold</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--rd);"></span>High risk / Volatility spike</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--bl);"></span>Energy / Feed-in metric</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--tx3);"></span>Neutral / Conventional</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--am);border:2px solid var(--am);background:transparent;"></span>Energy Consumers (BMW etc.)</span>
+    <span class="leg-item"><span class="leg-dot" style="background:var(--tl);border:2px solid var(--tl);background:transparent;"></span>Energy Generators (RWE, EOAN)</span>
+  </div>
+</div>
+
+<div class="c" style="padding-top:0;">
+  <div class="ov-grid">
+    <div>
+      <div class="card" style="margin-bottom:16px;animation:fu .4s .2s ease both;">
+        <div class="ch">
+          <div>
+            <div class="ct">Merit-Order Effect: Does Low Renewable Share Drive Energy Stock Volatility?</div>
+            <div class="ct-sub">Daily average renewable share % (left axis) vs. RWE + E.ON combined realized volatility (right axis)</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-shrink:0;">
+            <span style="display:flex;align-items:center;gap:4px;font-family:var(--mn);font-size:9px;color:#22c55e;"><span style="width:12px;height:2px;background:#22c55e;display:inline-block;border-radius:1px;"></span>Renewable %</span>
+            <span style="display:flex;align-items:center;gap:4px;font-family:var(--mn);font-size:9px;color:var(--rd);"><span style="width:12px;border-top:2px dashed var(--rd);display:inline-block;"></span>RWE+EOAN Vol</span>
+          </div>
+        </div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:160px;"><canvas id="ov-merit"></canvas></div></div>
+        <div class="cb" style="padding-top:0;">
+          <div class="biz-box">
+            <div class="biz-label">📋 Business Interpretation</div>
+            <div class="biz-text">Periods of low renewable share (below 40%) visually align with spikes in RWE and E.ON volatility — supporting the Merit-Order hypothesis. When renewables underperform, gas and coal take over, electricity prices rise, and energy utility stocks become more volatile due to price uncertainty. This pattern is consistent across Q1 2026.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="animation:fu .4s .3s ease both;">
+        <div class="ch">
+          <div>
+            <div class="ct">Which Companies Recovered — and Which Didn't?</div>
+            <div class="ct-sub">Normalised stock performance · Base = 100 on Jan 2, 2026</div>
+          </div>
+        </div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:160px;"><canvas id="ov-px"></canvas></div></div>
+        <div class="cb" style="padding-top:0;">
+          <div class="biz-box">
+            <div class="biz-label">📋 Business Interpretation</div>
+            <div class="biz-text">Energy generators (RWE +25%, E.ON +17%) strongly outperformed automotive stocks (BMW −17%, Mercedes −13%, VW −18%) across Q1 2026. This divergence reflects the asymmetric exposure to electricity price dynamics — generators benefit from price spikes while consumers are hurt by them. Note: macro factors (tariff concerns, economic slowdown) also contributed to automotive weakness.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card" style="animation:fu .4s .1s ease both;">
+        <div class="ch"><span class="ct">Average Generation Mix · Q1 2026</span></div>
+        <div class="cb" id="ov-mx"></div>
+      </div>
+      <div class="card" style="animation:fu .4s .15s ease both;">
+        <div class="ch"><span class="ct">Correlation at a Glance</span></div>
+        <div class="cb" style="padding:0;">
+          <table><thead><tr><th>Ticker</th><th>Sector</th><th class="r">ρ (feed-in vs vol)</th></tr></thead>
+          <tbody id="ov-corr"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONCLUSION -->
+  <div class="conclusion">
+    <div class="conc-title">📌 Project Conclusion</div>
+    <div class="conc-text">
+      PowerShock suggests that <strong>renewable energy feed-in data can provide useful early-warning signals</strong>
+      for selected energy-sensitive DAX stocks. Granger Causality analysis confirms that past feed-in levels
+      statistically predict volatility for <strong>Siemens (1–2 days ahead)</strong> and <strong>E.ON (2 days ahead)</strong>.
+      However, the signal is <strong>not strong enough to be used alone for trading decisions</strong> — low R² values
+      confirm that macro conditions, earnings events, and broader market dynamics also drive significant volatility.
+      <br><br>
+      This dashboard is better suited as a <strong>market-monitoring and risk-intelligence tool</strong> —
+      one that adds a novel energy-data dimension to equity risk analysis, particularly for utilities and industrial companies
+      with high electricity exposure.
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <span class="disc-icon">⚠️</span>
+    <div class="disc-text"><strong>Disclaimer:</strong> This dashboard is for educational and analytical purposes only.
+    It does not provide financial advice or trading recommendations. All analysis is based on historical Q1 2026 data
+    and should not be used as the basis for investment decisions.</div>
+  </div>
+</div>
+</div>
+
+<!-- ══ PAGE: SCREENER ══ -->
+<div class="page" id="p-sc"><div class="c">
+  <div class="ph">
+    <div class="ph-title">Stock <span>Screener</span></div>
+    <div class="ph-sub">Q1 2026 real data · Energy Consumers vs Energy Generators · Click any row for detail analysis</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+    <div style="background:linear-gradient(135deg,var(--am3),rgba(240,168,32,.02));border:1px solid rgba(240,168,32,.2);border-radius:var(--r);padding:14px 18px;">
+      <div style="font-family:var(--mn);font-size:11px;font-weight:600;color:var(--am);margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase;">⚡ Energy Consumers (BMW · MBG · VOW3 · SIE)</div>
+      <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">Buy electricity as a production input. Low renewable feed-in → higher energy costs → margin pressure → stock volatility. Granger significant: <strong style="color:var(--am);">SIE only</strong>.</div>
+    </div>
+    <div style="background:linear-gradient(135deg,var(--tl3),rgba(18,212,166,.02));border:1px solid rgba(18,212,166,.2);border-radius:var(--r);padding:14px 18px;">
+      <div style="font-family:var(--mn);font-size:11px;font-weight:600;color:var(--tl);margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase;">🔋 Energy Generators (RWE · EOAN)</div>
+      <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">Sell electricity to the grid. Low renewable feed-in → wholesale price spikes → revenue uncertainty → speculative trading. Granger significant: <strong style="color:var(--tl);">EOAN (lag 2)</strong>.</div>
+    </div>
+  </div>
+
+  <div class="stb">
+    <div class="sw">
+      <svg class="sico" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.2"/><path d="m10.5 10.5 3.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <input class="si" type="text" placeholder="Search company or ticker…" id="srch" oninput="rTable()">
+    </div>
+    <div class="chips">
+      <button class="chip on" onclick="setChip('all',this)">All Companies</button>
+      <button class="chip" onclick="setChip('consumer',this)">⚡ Consumers</button>
+      <button class="chip" onclick="setChip('generator',this)">🔋 Generators</button>
+      <button class="chip" onclick="setChip('sig',this)">✅ Granger Significant</button>
+    </div>
+  </div>
+  <div class="card"><div style="overflow-x:auto;">
+    <table>
+      <thead><tr>
+        <th onclick="sBy('name')">Company</th>
+        <th>Sector</th>
+        <th>Type</th>
+        <th class="r sorted" onclick="sBy('price')">Q1 End Price €</th>
+        <th class="r" onclick="sBy('chg')">Q1 Change %</th>
+        <th class="r" onclick="sBy('rvol')">
+          <span class="tip-wrap">Avg Daily Vol %<span class="tip-icon">i</span><span class="tip-popup">Realized Volatility: Measures how much a stock price moved during a specific time window. Calculated as the 8-hour rolling standard deviation of log returns, expressed as a percentage.</span></span>
+        </th>
+        <th class="r" onclick="sBy('corr')">
+          <span class="tip-wrap">ρ Feed-in vs Vol<span class="tip-icon">i</span><span class="tip-popup">Pearson r correlation between daily average renewable share % and daily average realized volatility. Negative means higher renewables correlate with lower volatility.</span></span>
+        </th>
+        <th>Granger Signal</th>
+      </tr></thead>
+      <tbody id="tbdy"></tbody>
+    </table>
+  </div></div>
+  <div class="biz-box" style="margin-top:14px;">
+    <div class="biz-label">📋 How to Interpret This Table</div>
+    <div class="biz-text">Sort by "Q1 Change %" to see the performance divide: energy generators (RWE, EOAN) rose strongly while automotive stocks fell. Sort by "ρ Feed-in vs Vol" to see who reacts most to renewable changes. The Granger Signal column shows which companies have a statistically confirmed predictive link between past feed-in levels and future volatility.</div>
+  </div>
+</div></div>
+
+<!-- ══ PAGE: CORRELATION ══ -->
+<div class="page" id="p-co"><div class="c">
+  <div class="ph">
+    <div class="ph-title">Correlation <span>Explorer</span></div>
+    <div class="ph-sub">
+      <span class="tip-wrap">Which DAX stocks react most strongly to renewable feed-in changes?<span class="tip-icon">i</span><span class="tip-popup">Pearson r measures the strength and direction of the linear relationship between two variables. Values range from -1 (perfect inverse) to +1 (perfect positive). Values near 0 indicate weak or no linear relationship.</span></span>
+    </div>
+  </div>
+  <div style="background:var(--am3);border:1px solid rgba(240,168,32,.2);border-radius:var(--r);padding:12px 18px;margin-bottom:18px;font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">
+    <strong style="color:var(--am);">Reading the scatter plot:</strong> Each dot is one trading day. X-axis = average renewable share that day. Y-axis = average realized volatility that day.
+    A <strong>downward slope</strong> (negative r) means higher renewables → lower volatility for that stock. An <strong>upward slope</strong> (positive r) means higher renewables → higher volatility — this happens for generators (RWE, EOAN) because renewable surges create electricity price uncertainty.
+  </div>
+  <div class="cl2">
+    <div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="ch"><span class="ct">Scatter: Daily Renewable Share % vs Realized Volatility</span><div class="trow" id="ctog"></div></div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:300px;"><canvas id="co-sc"></canvas></div></div>
+        <div class="cb" style="padding-top:0;">
+          <div class="biz-box">
+            <div class="biz-label">📋 Business Interpretation</div>
+            <div class="biz-text">Automotive stocks show a mild negative slope — slightly lower volatility on high-renewable days, suggesting cheaper electricity marginally reduces uncertainty. Utilities (RWE, EOAN) show a positive slope — renewable surges correlate with more volatile trading, likely because energy markets are pricing in rapid supply changes. All correlations are moderate, confirming feed-in is a relevant but not dominant factor.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Which Stocks Correlate Most with Renewable Changes?</span></div>
+        <div class="cb">
+          <table><thead><tr><th>Company</th><th>Type</th><th class="r">ρ</th><th class="r">R²</th><th class="r">Strength</th><th class="r">Direction</th></tr></thead>
+          <tbody id="co-mx"></tbody></table>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card"><div class="ch"><span class="ct">R² — Variance Explained</span></div><div class="cb" id="co-r2"></div>
+        <div class="cb" style="padding-top:0;border-top:1px solid var(--b);">
+          <div style="font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.7;">R² shows what fraction of volatility variance is explained by renewable feed-in. Even the highest R² (EOAN: 5.7%) is low — confirming feed-in is one signal among many.</div>
+        </div>
+      </div>
+      <div class="card"><div class="ch"><span class="ct">Merit-Order Mechanism</span></div>
+        <div class="cb">
+          <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.8;margin-bottom:10px;">Renewable Share shows strong negative correlation with conventional fuels — confirming the Merit-Order Effect in the data:</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:11px;"><span style="color:var(--tx2);">Renewable vs Fossil Gas</span><span style="color:var(--rd);font-weight:600;">r = −0.93</span></div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:11px;"><span style="color:var(--tx2);">Renewable vs Lignite</span><span style="color:var(--rd);font-weight:600;">r = −0.88</span></div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:11px;"><span style="color:var(--tx2);">BMW vol vs VOW3 vol</span><span style="color:var(--am);font-weight:600;">r = +0.80</span></div>
+          </div>
+          <div style="margin-top:10px;font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.6;">High cross-stock correlation (BMW-VOW3: 0.80) suggests market-wide movement drives much of the volatility — not energy alone.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══ PAGE: GRANGER ══ -->
+<div class="page" id="p-gr"><div class="c">
+  <div class="ph">
+    <div class="ph-title">Granger <span>Causality</span></div>
+    <div class="ph-sub">
+      <span class="tip-wrap">Can renewable energy shocks predict future stock volatility?<span class="tip-icon">i</span><span class="tip-popup">Granger Causality tests whether past values of one variable (renewable feed-in) help predict future values of another (stock volatility), beyond what past volatility alone predicts. It is predictive, not structural causation.</span></span>
+    </div>
+  </div>
+
+  <div class="gr-grid">
+    <div class="gr-info">
+      <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:12px;">What is Granger Causality?</div>
+      <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.8;margin-bottom:14px;">
+        If past values of renewable feed-in <strong style="color:var(--am);">X</strong> help predict current stock volatility <strong style="color:var(--am);">Y</strong> — beyond what past volatility alone predicts — then X is said to <em>Granger-cause</em> Y.
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:14px;font-family:var(--mn);font-size:10px;line-height:2;color:var(--tx2);">
+        <div style="color:var(--bl);">10:00 AM · Low wind output detected in SMARD data</div>
+        <div style="color:var(--am);">11:00 AM · Wholesale electricity price rises</div>
+        <div style="color:var(--tl);">Next Day · Siemens/E.ON volatility increases</div>
+      </div>
+      <div style="margin-top:12px;font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.7;">
+        <strong style="color:var(--tx2);">Important:</strong> Granger causality is predictive, not structural. It does not prove that feed-in mechanistically drives volatility through a specific causal pathway — only that past feed-in data improves the forecast.
+      </div>
+    </div>
+    <div class="gr-info">
+      <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:12px;">Results Summary</div>
+      <div style="font-family:var(--mn);font-size:11px;line-height:1.9;color:var(--tx2);">
+        <div style="margin-bottom:8px;"><span style="color:var(--tl);">✅ Siemens (SIE)</span> — significant at lag 1 &amp; 2. Feed-in predicts volatility <strong style="color:var(--tx);">1–2 trading days ahead</strong>. Siemens is a large electricity consumer as a technology/industrial company — directly exposed to grid dynamics.</div>
+        <div style="margin-bottom:8px;"><span style="color:var(--tl);">✅ E.ON (EOAN)</span> — significant at lag 2. A delayed effect: feed-in levels today influence E.ON's volatility <strong style="color:var(--tx);">2 trading days later</strong>. As a utility seller, E.ON's stock responds to energy market signals with a lag.</div>
+        <div style="margin-bottom:6px;"><span style="color:var(--tx3);">❌ BMW, Mercedes, VW</span> — not significant. Automotive companies hedge electricity via long-term PPAs and are indirectly exposed — the feed-in signal is absorbed before reaching stock prices.</div>
+        <div><span style="color:var(--tx3);">❌ RWE</span> — not significant despite high correlation. Likely because energy futures markets price in renewable forecasts hours ahead — the signal is too fast for daily lags to capture.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch">
+      <div>
+        <div class="ct">Full Results: Does Past Renewable Feed-in Predict Future Volatility?</div>
+        <div class="ct-sub">F-statistic and p-value for each company at lags 1, 2, and 3 trading days · α = 0.05</div>
+      </div>
+      <span style="font-family:var(--mn);font-size:10px;padding:4px 10px;border:1px solid rgba(18,212,166,.3);border-radius:4px;color:var(--tl);background:var(--tl3);">✅ Highlighted = Significant</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>Company</th><th>Sector</th><th>Type</th>
+          <th class="r">Lag (days)</th><th class="r">F-statistic</th><th class="r">p-value</th>
+          <th class="r">Significant?</th><th>Interpretation</th>
+        </tr></thead>
+        <tbody id="gr-body"></tbody>
+      </table>
+    </div>
+    <div class="cb" style="padding-top:0;border-top:1px solid var(--b);">
+      <div class="biz-box">
+        <div class="biz-label">📋 Business Interpretation</div>
+        <div class="biz-text">A significant Granger result for Siemens and E.ON suggests that renewable feed-in data contains useful early-warning information for utility and industrial-sector volatility. This implies a roughly 1–2 day predictive window — time that corporate risk managers or portfolio hedgers could use to adjust positions. However, this does not prove direct causation and should not be used as a standalone trading signal.</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ══ PAGE: TRADING SIGNALS ══ -->
+<div class="page" id="p-tr"><div class="c">
+  <div class="ph">
+    <div class="ph-title">Trading <span>Signals</span></div>
+    <div class="ph-sub">
+      <span class="tip-wrap">Simulate feed-in changes → predicted volatility impact per company<span class="tip-icon">i</span><span class="tip-popup">OLS (Ordinary Least Squares) regression estimates β — the average change in realized volatility for each 1% change in renewable feed-in. These β values are from real Q1 2026 data. This is for research and educational purposes only.</span></span>
+    </div>
+  </div>
+
+  <div style="background:var(--am3);border:1px solid rgba(240,168,32,.2);border-radius:var(--r);padding:12px 18px;margin-bottom:18px;font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">
+    <strong style="color:var(--am);">How this works:</strong> OLS regression was run on your real Q1 2026 data to estimate β (beta) — the average change in each company's realized volatility for every 1% change in renewable feed-in. Drag the slider to simulate a feed-in scenario and see the directional predicted impact on each stock's volatility.
+  </div>
+
+  <div class="tr-grid">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="ct">Simulate a Feed-in Change</span></div>
+        <div class="cb">
+          <div class="slbl"><span>ΔRenewable Feed-in %</span><span style="color:var(--am);font-size:14px;font-weight:600;" id="tr-fv">+5%</span></div>
+          <input type="range" id="tr-sl" min="-30" max="30" value="5" step="1" oninput="runTr()">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mn);font-size:9px;color:var(--tx3);margin-bottom:12px;"><span>↓ Low (Stress)</span><span>Neutral</span><span>↑ High (Green)</span></div>
+          <div class="fi-presets">
+            <button class="preset neg" onclick="setTr(-20)">−20%</button>
+            <button class="preset neg" onclick="setTr(-10)">−10%</button>
+            <button class="preset neg" onclick="setTr(-5)">−5%</button>
+            <button class="preset" onclick="setTr(0)">0%</button>
+            <button class="preset pos" onclick="setTr(5)">+5%</button>
+            <button class="preset pos" onclick="setTr(10)">+10%</button>
+            <button class="preset pos" onclick="setTr(20)">+20%</button>
+          </div>
+          <div id="tr-vd" style="font-family:var(--mn);font-size:11px;padding:12px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--b);line-height:1.7;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">OLS β Coefficients (from real data)</span><span style="font-family:var(--mn);font-size:9px;color:var(--tx3);">Δvol % per 1% feed-in change</span></div>
+        <div class="cb" style="padding:0;">
+          <table><thead><tr><th>Company</th><th>Type</th><th class="r">β</th><th class="r">ρ</th></tr></thead>
+          <tbody id="tr-beta"></tbody></table>
+        </div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);padding:14px;font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.8;border-left:2px solid var(--am);">
+        <strong style="color:var(--am);">⚠ Research Only:</strong> β coefficients are estimated from Q1 2026 OLS regression. Real volatility impact depends on hedging strategies, macro conditions, market liquidity, and broader sector dynamics. This is not financial advice.
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="ct">Predicted Volatility Impact per Company</span><div id="tr-sum" style="font-family:var(--mn);font-size:10px;color:var(--tx2);"></div></div>
+        <div class="cb" style="padding-top:10px;"><div id="tr-bars"></div></div>
+        <div class="cb" style="padding-top:0;">
+          <div class="biz-box">
+            <div class="biz-label">📋 Business Interpretation</div>
+            <div class="biz-text">The bar chart shows the predicted directional change in realized volatility for each company given the simulated feed-in change. Siemens shows the strongest sensitivity among consumers (β = +0.0045) while E.ON and RWE respond as generators. Use the −20% scenario to simulate a renewable stress event — the kind of condition that would trigger the H₁ alert threshold.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct">Full Elasticity: How Volatility Changes Across Feed-in Range</span></div>
+        <div class="cb" style="padding-top:10px;"><div style="position:relative;height:180px;"><canvas id="tr-el"></canvas></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer" style="margin-top:24px;">
+    <span class="disc-icon">⚠️</span>
+    <div class="disc-text"><strong>Disclaimer:</strong> This dashboard is for educational and analytical purposes only. It does not provide financial advice or trading recommendations. The Trading Signals page uses OLS regression estimates from historical Q1 2026 data and should not be used as the basis for any investment or trading decision.</div>
+  </div>
+</div></div>
+
+<script>
+const D={"daily_labels":["2026-01-02","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-12","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-09","2026-02-10","2026-02-11","2026-02-12","2026-02-13","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-23","2026-02-24","2026-02-25","2026-02-26","2026-02-27","2026-03-02","2026-03-03","2026-03-04","2026-03-05","2026-03-06","2026-03-09","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-20","2026-03-23","2026-03-24","2026-03-25","2026-03-26","2026-03-27","2026-03-30","2026-03-31"],"daily_feedin":[72.26,36.11,28.71,55.75,29.97,71.2,43.63,43.1,47.98,55.37,51.12,47.23,40.83,49.99,52.93,56.42,38.15,41.49,42.25,38.84,46.12,63.81,48.63,43.45,33.96,35.22,44.82,44.72,53.55,43.37,52.57,43.6,34.54,55.66,57.57,81.04,33.53,57.18,74.95,78.46,70.82,64.31,62.49,69.19,61.74,60.49,59.59,78.99,81.08,83.12,73.63,55.38,77.86,70.33,62.57,62.34,83.56,83.62,79.32,71.42,76.95,62.71],"daily_wind":[43291.0,12160.0,7418.0,31390.0,10896.0,44915.0,22226.0,17346.0,22056.0,23739.0,19191.0,13704.0,6064.0,14802.0,20807.0,26201.0,19021.0,16691.0,20721.0,20044.0,21467.0,38767.0,22129.0,17483.0,9985.0,8275.0,13630.0,17878.0,25844.0,14496.0,23386.0,14570.0,3952.0,27431.0,23072.0,44883.0,2865.0,8253.0,19418.0,21225.0,10803.0,4441.0,2658.0,7195.0,2629.0,2004.0,3962.0,33389.0,23186.0,32641.0,30142.0,6776.0,11788.0,2378.0,1786.0,855.0,26524.0,42323.0,28672.0,9613.0,30561.0,19864.0],"daily_solar":[2633.0,4524.0,2901.0,5667.0,1725.0,2985.0,1221.0,4167.0,4633.0,7130.0,10741.0,13094.0,14531.0,14401.0,11848.0,9608.0,1695.0,5514.0,3782.0,1206.0,4798.0,6173.0,6938.0,6695.0,4819.0,7409.0,11087.0,6001.0,6038.0,7453.0,6973.0,8117.0,10973.0,8140.0,12728.0,11068.0,10132.0,21380.0,22680.0,27235.0,30116.0,29606.0,29230.0,31830.0,31343.0,28384.0,27044.0,17682.0,26536.0,22363.0,16334.0,19875.0,34941.0,36269.0,30704.0,33187.0,25708.0,14768.0,22315.0,30430.0,16662.0,17942.0],"daily_gas":[7546.0,16263.0,17304.0,15190.0,17575.0,9375.0,15037.0,14640.0,13729.0,11895.0,13483.0,15108.0,16375.0,14543.0,13832.0,13449.0,18605.0,17946.0,17392.0,18022.0,16069.0,11964.0,14645.0,15739.0,16150.0,17345.0,15828.0,15424.0,13721.0,15677.0,13117.0,15020.0,16314.0,12677.0,11191.0,5949.0,15164.0,10999.0,6251.0,4834.0,6348.0,7321.0,6766.0,4692.0,6786.0,5880.0,6174.0,3603.0,4024.0,3646.0,4456.0,6659.0,3920.0,4640.0,5133.0,5282.0,2896.0,3087.0,3531.0,4634.0,3913.0,6571.0],"daily_lignite":[3818.0,11363.0,11237.0,9268.0,11964.0,5570.0,10794.0,10592.0,10888.0,9301.0,9870.0,10269.0,10530.0,10193.0,10488.0,10237.0,13347.0,10930.0,11470.0,11572.0,11227.0,7306.0,11530.0,11321.0,11641.0,10965.0,11474.0,11317.0,11036.0,11326.0,11759.0,12509.0,12852.0,12520.0,11757.0,4356.0,12660.0,10225.0,6086.0,5644.0,7290.0,8267.0,8978.0,9020.0,8450.0,9772.0,10581.0,6918.0,4356.0,4110.0,8728.0,10983.0,7025.0,8395.0,11146.0,10385.0,4570.0,4415.0,6263.0,9013.0,4168.0,8669.0],"daily_biomass":[4303.0,4399.0,4443.0,4292.0,4519.0,4319.0,4414.0,4457.0,4298.0,4330.0,4303.0,4431.0,4519.0,4450.0,4458.0,4431.0,4523.0,4280.0,4435.0,4488.0,4519.0,4189.0,4367.0,4408.0,4478.0,4453.0,4351.0,4378.0,4280.0,4328.0,4320.0,4263.0,4291.0,4306.0,4322.0,3996.0,4209.0,4143.0,4146.0,4107.0,4173.0,4281.0,4350.0,4326.0,4290.0,4191.0,3995.0,4086.0,4054.0,4105.0,4003.0,4066.0,3997.0,4013.0,4159.0,4098.0,4058.0,4082.0,4108.0,4106.0,4163.0,4128.0],"daily_hydro":[1040.0,1573.0,1860.0,1187.0,1774.0,1294.0,1532.0,1373.0,1354.0,1292.0,1291.0,1259.0,1447.0,1292.0,1239.0,1224.0,1355.0,1363.0,1403.0,1433.0,1316.0,1150.0,1200.0,1180.0,1194.0,1381.0,1333.0,1361.0,1481.0,1559.0,1537.0,1659.0,1727.0,1538.0,1728.0,1733.0,2053.0,1982.0,1973.0,1892.0,1508.0,1551.0,1671.0,1539.0,1454.0,1461.0,1410.0,1235.0,1233.0,1264.0,1161.0,1203.0,1147.0,1280.0,1269.0,1175.0,1219.0,1080.0,1135.0,1130.0,1022.0,1298.0],"corrs":{"BMW.DE":-0.11,"MBG.DE":-0.091,"VOW3.DE":-0.084,"SIE.DE":0.146,"RWE.DE":0.215,"EOAN.DE":0.239},"granger":[{"stock":"BMW","lag":1,"f":1.946,"p":0.1684,"sig":false},{"stock":"BMW","lag":2,"f":0.714,"p":0.4942,"sig":false},{"stock":"BMW","lag":3,"f":0.65,"p":0.5863,"sig":false},{"stock":"MBG","lag":1,"f":0.8,"p":0.3749,"sig":false},{"stock":"MBG","lag":2,"f":0.21,"p":0.8112,"sig":false},{"stock":"MBG","lag":3,"f":0.507,"p":0.6789,"sig":false},{"stock":"VOW3","lag":1,"f":3.306,"p":0.0742,"sig":false},{"stock":"VOW3","lag":2,"f":1.312,"p":0.3775,"sig":false},{"stock":"VOW3","lag":3,"f":1.021,"p":0.391,"sig":false},{"stock":"SIE","lag":1,"f":6.961,"p":0.0107,"sig":true},{"stock":"SIE","lag":2,"f":3.703,"p":0.031,"sig":true},{"stock":"SIE","lag":3,"f":2.339,"p":0.0841,"sig":false},{"stock":"RWE","lag":1,"f":0.531,"p":0.4692,"sig":false},{"stock":"RWE","lag":2,"f":1.871,"p":0.1636,"sig":false},{"stock":"RWE","lag":3,"f":1.34,"p":0.2716,"sig":false},{"stock":"EOAN","lag":1,"f":1.794,"p":0.1857,"sig":false},{"stock":"EOAN","lag":2,"f":4.282,"p":0.0187,"sig":true},{"stock":"EOAN","lag":3,"f":2.458,"p":0.0731,"sig":false}],"stocks":{"BMW.DE":{"price":[96.24,93.66,93.34,93.0,92.32,92.26,90.28,88.49,90.7,90.36,88.78,85.42,86.14,86.72,87.94,87.36,87.6,86.88,87.22,87.26,87.36,87.58,90.98,88.72,88.4,87.94,88.88,89.42,87.74,88.94,89.52,90.58,91.44,90.04,90.52,87.7,88.58,88.38,88.94,89.42,85.0,82.06,82.84,81.26,79.66,78.34,80.5,80.52,81.78,81.26,79.03,79.32,79.06,76.62,75.8,77.34,77.96,78.6,77.96,77.8,78.04,77.64],"price_norm":[100.0,97.32,96.99,96.63,95.93,95.86,93.81,91.95,94.24,93.89,92.25,88.76,89.51,90.11,91.38,90.77,91.02,90.27,90.63,90.67,90.77,91.0,94.53,92.19,91.85,91.38,92.35,92.91,91.17,92.41,93.02,94.12,95.01,93.56,94.06,91.13,92.04,91.83,92.41,92.91,88.32,85.27,86.08,84.43,82.77,81.4,83.65,83.67,84.98,84.43,82.12,82.42,82.15,79.61,78.76,80.36,81.01,81.67,81.01,80.84,81.09,80.67],"rvol":[0.3175,0.6698,0.3775,0.5405,0.5131,0.7792,0.6034,0.5545,0.8056,0.5888,0.6465,1.4792,0.6031,0.6397,0.9293,0.4343,0.3761,0.391,0.5011,0.4102,0.2507,0.9327,0.7905,0.7763,0.7534,0.3701,0.4343,0.4913,0.8493,0.5444,0.4304,0.3967,0.3737,0.654,0.3511,0.6239,0.7584,0.308,0.3949,0.2436,1.0736,0.9302,0.4781,0.455,0.4602,0.6588,1.0505,0.5417,0.5259,0.6333,0.5165,0.5483,0.3948,0.9241,0.5403,1.2519,0.7493,0.4829,0.3334,0.3368,0.1615,0.2646]},"MBG.DE":{"price":[62.02,60.25,61.34,60.2,59.93,60.47,59.64,59.84,60.53,59.37,58.86,57.5,56.83,57.58,58.84,58.14,58.13,56.94,57.36,57.35,57.47,58.49,61.07,58.98,58.77,58.28,58.56,58.24,56.88,57.59,57.67,58.9,59.31,58.78,59.17,58.35,58.83,58.86,59.08,59.03,56.72,55.67,56.47,55.51,54.78,54.11,55.07,54.83,55.32,54.83,53.81,53.53,53.5,51.64,51.15,51.8,51.65,52.2,51.91,51.59,51.54,52.28],"price_norm":[100.0,97.15,98.9,97.07,96.63,97.5,96.16,96.49,97.6,95.73,94.9,92.71,91.63,92.84,94.87,93.74,93.73,91.81,92.49,92.47,92.66,94.31,98.47,95.1,94.76,93.97,94.42,93.91,91.71,92.86,92.99,94.97,95.63,94.78,95.4,94.08,94.86,94.9,95.26,95.18,91.45,89.76,91.05,89.5,88.33,87.25,88.79,88.41,89.2,88.42,86.76,86.31,86.26,83.26,82.47,83.52,83.28,84.17,83.7,83.18,83.1,84.29],"rvol":[0.2535,0.5002,0.6574,0.3003,0.37,0.5939,0.6497,0.6792,0.7176,0.7275,0.6274,1.2137,0.4681,0.8179,1.3428,0.5124,0.3655,0.4461,0.5329,0.5405,0.2708,1.1876,0.8586,0.9033,0.7021,0.343,0.408,0.4092,1.9149,0.6979,0.505,0.5481,0.326,0.5924,0.4216,0.4289,0.5526,0.2676,0.2848,0.3381,0.986,0.8677,0.3311,0.3929,0.4074,0.702,0.813,0.5616,0.3985,0.6896,0.5368,0.4621,0.5619,0.7685,0.5633,1.1471,0.6286,0.4388,0.2376,0.4188,0.2601,0.39]},"VOW3.DE":{"price":[106.45,103.25,103.2,102.05,101.65,103.7,102.35,102.25,103.3,103.15,101.3,98.46,97.62,98.88,104.9,105.35,104.35,102.6,103.1,103.6,102.5,102.2,106.0,101.95,100.85,101.05,104.25,103.85,102.2,102.85,102.55,103.8,104.15,102.5,102.65,100.0,101.7,100.0,101.2,101.6,96.22,93.42,94.38,93.08,89.88,88.16,90.42,91.62,92.24,89.36,88.04,88.5,88.5,86.0,85.1,86.04,86.54,87.84,86.7,86.48,86.22,86.22],"price_norm":[100.0,96.99,96.95,95.87,95.49,97.42,96.15,96.05,97.04,96.9,95.16,92.49,91.71,92.89,98.54,98.97,98.03,96.38,96.85,97.32,96.29,96.01,99.58,95.77,94.74,94.93,97.93,97.56,96.01,96.62,96.34,97.51,97.84,96.29,96.43,93.94,95.54,93.94,95.07,95.44,90.39,87.76,88.66,87.44,84.43,82.82,84.94,86.07,86.65,83.95,82.71,83.14,83.14,80.79,79.94,80.83,81.3,82.52,81.45,81.24,81.0,81.0],"rvol":[0.3884,0.4987,0.3672,0.327,0.4498,0.6984,0.5797,0.6728,0.7438,0.5103,0.6297,1.0891,0.4736,0.6732,1.8376,0.4002,0.3937,0.4496,0.4426,0.4699,0.3385,0.5029,0.6342,0.9608,0.7915,0.3152,0.3903,0.4546,0.6886,0.4238,0.444,0.3796,0.3634,0.9712,0.3493,0.4711,0.6239,0.4447,0.39,0.4896,1.2007,0.8371,0.4529,0.464,0.4667,0.8585,1.1543,0.6335,0.385,0.6005,0.4546,0.4835,0.5135,0.8286,0.655,1.1558,0.747,0.5958,0.3961,0.3773,0.2554,0.2976]},"SIE.DE":{"price":[241.0,244.62,247.75,256.3,251.7,254.95,258.15,262.25,260.05,261.1,260.1,255.95,253.95,253.55,259.05,254.35,254.45,253.55,251.0,255.5,256.7,261.05,244.02,244.15,250.05,256.15,258.42,255.35,258.3,249.7,234.65,235.7,244.8,240.35,245.15,240.2,240.45,244.05,248.65,247.95,238.8,225.8,232.3,223.35,224.0,220.3,231.55,227.55,224.7,219.9,220.25,219.6,218.1,210.95,203.55,209.35,209.3,211.0,208.75,204.25,204.45,205.25],"price_norm":[100.0,101.5,102.8,106.35,104.44,105.79,107.12,108.82,107.9,108.34,107.93,106.2,105.37,105.21,107.49,105.54,105.58,105.21,104.15,106.02,106.51,108.32,101.26,101.31,103.76,106.29,107.23,105.95,107.18,103.61,97.37,97.8,101.58,99.73,101.72,99.67,99.77,101.27,103.17,102.88,99.09,93.69,96.39,92.68,92.95,91.41,96.08,94.42,93.24,91.24,91.39,91.12,90.5,87.53,84.46,86.87,86.85,87.55,86.62,84.75,84.83,85.17],"rvol":[0.354,0.7063,0.2981,0.6926,0.4074,0.3575,0.3346,0.3596,0.3798,0.2691,0.3937,0.688,0.7484,0.3662,0.4056,0.3427,0.1963,0.1908,0.2255,0.9839,0.6279,1.2098,1.1142,0.6731,0.5832,0.3881,0.2716,0.4988,2.5162,1.0723,0.522,0.4673,1.236,0.3095,0.2487,0.4751,0.4517,0.5863,0.5834,0.3218,1.3373,1.4765,0.7673,0.4794,1.1457,1.3068,1.3305,0.8056,0.5549,0.7441,0.6468,0.5541,0.721,1.315,0.6833,1.6927,0.8776,0.8645,0.4142,0.5379,0.3621,0.6512]},"RWE.DE":{"price":[46.93,47.01,47.86,48.13,47.87,47.97,48.38,48.04,49.38,50.8,51.48,51.54,51.08,51.68,51.38,51.5,52.2,52.8,52.8,53.22,53.94,54.42,53.82,52.18,52.9,53.42,53.46,54.22,52.08,49.86,50.52,51.58,52.68,51.4,52.06,51.64,52.7,54.24,53.9,54.31,54.86,52.72,53.5,52.56,52.68,53.26,54.4,53.82,55.91,57.02,57.1,58.54,57.98,57.42,56.38,55.02,55.14,56.82,55.8,54.58,56.08,57.94],"price_norm":[100.0,100.17,101.98,102.56,102.0,102.22,103.09,102.37,105.22,108.25,109.7,109.82,108.84,110.12,109.48,109.74,111.23,112.51,112.51,113.4,114.94,115.96,114.68,111.19,112.72,113.83,113.91,115.53,110.97,106.24,107.65,109.91,112.25,109.52,110.93,110.04,112.29,115.58,114.85,115.73,116.9,112.34,114.0,112.0,112.25,113.49,115.92,114.68,119.13,121.5,121.67,124.74,123.55,122.35,120.14,117.24,117.49,121.07,118.9,116.3,119.5,123.46],"rvol":[0.435,0.6617,0.3859,0.6912,0.2122,0.3581,0.2954,0.3651,1.244,0.7187,0.3774,0.421,0.7037,0.2717,0.9014,0.5727,0.367,0.2526,0.2523,0.3648,0.4121,0.5012,0.3004,0.8347,0.749,0.3993,0.2537,0.3624,0.7366,0.7997,0.4146,0.4467,0.4469,0.8375,0.5808,0.3391,0.6278,0.3215,0.794,0.4878,0.443,1.6634,0.7253,0.3773,0.5475,0.8052,0.7171,0.9893,0.9428,0.5566,0.3646,0.6436,0.5113,0.5422,1.0079,1.4248,0.5451,0.7644,0.3589,0.6544,0.4057,0.515]},"EOAN.DE":{"price":[16.44,16.42,16.52,16.75,16.92,16.83,16.89,16.6,16.88,17.16,17.34,17.47,17.08,16.92,17.01,16.9,17.34,17.57,17.82,17.77,17.89,17.89,17.97,17.41,17.71,17.96,17.83,18.17,18.23,18.59,18.65,18.75,18.56,18.6,18.63,18.5,18.76,19.39,19.78,19.71,19.36,18.64,18.9,18.84,18.62,18.42,19.18,19.19,19.45,19.85,19.72,20.36,19.88,19.32,18.57,18.44,18.78,19.01,18.66,18.58,18.91,18.95],"price_norm":[100.0,99.85,100.52,101.86,102.92,102.37,102.71,101.0,102.68,104.38,105.5,106.27,103.92,102.92,103.48,102.8,105.47,106.84,108.39,108.09,108.79,108.79,109.28,105.9,107.73,109.25,108.49,110.49,110.89,113.11,113.41,114.05,112.86,113.17,113.32,112.5,114.14,117.94,120.32,119.89,117.79,113.38,114.93,114.6,113.29,112.01,116.67,116.73,118.31,120.77,119.95,123.84,120.92,117.52,112.96,112.17,114.23,115.63,113.5,113.05,114.99,115.3],"rvol":[0.2652,0.7715,0.4924,0.6735,0.1876,0.2985,0.439,0.6098,0.8347,0.6888,0.1957,0.3423,0.5563,0.2445,0.7156,0.4706,0.3361,0.2962,0.3094,0.26,0.1936,0.2949,0.4209,0.8478,0.5489,0.2305,0.3246,0.3175,0.3497,0.5233,0.3348,0.392,0.2222,0.4058,0.3367,0.2704,0.7555,0.6826,0.4163,0.4361,0.5313,1.1827,0.5835,0.4561,0.4239,0.8311,0.9062,0.5794,0.4921,0.462,0.4343,0.6321,0.4001,0.6404,0.6013,1.2292,0.5581,0.4068,0.4816,0.4967,0.3032,0.3051]}},"rwe_eoan_vol":[0.3501,0.7166,0.4391,0.6824,0.1999,0.3283,0.3672,0.4875,1.0394,0.7037,0.2866,0.3816,0.63,0.2581,0.8085,0.5217,0.3516,0.2744,0.2809,0.3124,0.3028,0.3981,0.3606,0.8413,0.649,0.3149,0.2891,0.34,0.5431,0.6615,0.3747,0.4194,0.3346,0.6217,0.4587,0.3048,0.6917,0.502,0.6052,0.4619,0.4872,1.423,0.6544,0.4167,0.4857,0.8181,0.8116,0.7843,0.7174,0.5093,0.3995,0.6379,0.4557,0.5913,0.8046,1.327,0.5516,0.5856,0.4203,0.5755,0.3545,0.41],"auto_vol":[0.3198,0.5562,0.4674,0.3892,0.4443,0.6905,0.6109,0.6355,0.7557,0.6088,0.6345,1.2607,0.5149,0.7102,1.3699,0.449,0.3785,0.4289,0.4922,0.4735,0.2867,0.8744,0.7611,0.8802,0.749,0.3428,0.4109,0.4517,1.1509,0.5554,0.4598,0.4415,0.3544,0.7392,0.374,0.508,0.645,0.3401,0.3566,0.3571,1.0868,0.8783,0.4207,0.4373,0.4447,0.7398,1.0059,0.5789,0.4364,0.6411,0.5026,0.498,0.49,0.8404,0.5862,1.1849,0.7083,0.5058,0.3224,0.3776,0.2257,0.3174]};
+
+const META=[
+  {ticker:'BMW.DE', name:'BMW AG',          sector:'Automotive',  type:'consumer',c:'#5f9cf8'},
+  {ticker:'MBG.DE', name:'Mercedes-Benz',   sector:'Automotive',  type:'consumer',c:'#a78bfa'},
+  {ticker:'VOW3.DE',name:'Volkswagen AG',   sector:'Automotive',  type:'consumer',c:'#fb923c'},
+  {ticker:'SIE.DE', name:'Siemens AG',      sector:'Industrial',  type:'consumer',c:'#f472b6'},
+  {ticker:'RWE.DE', name:'RWE AG',          sector:'Energy/Util.',type:'generator',c:'#12d4a6'},
+  {ticker:'EOAN.DE',name:'E.ON SE',         sector:'Energy/Util.',type:'generator',c:'#f0a820'},
+];
+const BETAS={'BMW.DE':0.000487,'MBG.DE':-0.000503,'VOW3.DE':0.001373,'SIE.DE':0.004500,'RWE.DE':0.003719,'EOAN.DE':0.001482};
+const GRANGER_SIG={'SIE':['1','2'],'EOAN':['2']};
+
+function go(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('p-'+id).classList.add('on');
+  btn.classList.add('on');
+  closeDrw();
+  if(id==='tx'){setTimeout(function(){renderLagTable();renderShockChart();},50);}
+}
+setInterval(()=>{document.getElementById('clk').textContent=new Date().toLocaleTimeString('de-DE');},1000);
+document.getElementById('clk').textContent=new Date().toLocaleTimeString('de-DE');
+
+Chart.defaults.font.family='DM Mono';Chart.defaults.color='#7a8099';
+const CD={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1017',borderColor:'rgba(255,255,255,.12)',
+    borderWidth:1,titleColor:'#7a8099',bodyColor:'#e2e6f3',padding:12,titleFont:{size:10},bodyFont:{size:11}}},
+  scales:{x:{ticks:{font:{size:9},maxTicksLimit:10,maxRotation:0},grid:{color:'rgba(255,255,255,.04)'},border:{display:false}},
+    y:{grid:{color:'rgba(255,255,255,.04)'},border:{display:false},ticks:{font:{size:9}}}}};
+const CHS={};
+function mk(id,cfg){if(CHS[id])CHS[id].destroy();CHS[id]=new Chart(document.getElementById(id),cfg);}
+
+/* ─── OVERVIEW ─── */
+(function(){
+  const lb=D.daily_labels;
+  mk('ov-merit',{type:'line',data:{labels:lb,datasets:[
+    {label:'Renewable %',data:D.daily_feedin,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.08)',
+     fill:true,tension:.4,pointRadius:0,borderWidth:2,yAxisID:'y'},
+    {label:'RWE+EOAN Vol',data:D.rwe_eoan_vol,borderColor:'#e85858',borderDash:[5,3],
+     tension:.4,pointRadius:0,borderWidth:1.5,yAxisID:'y2'}
+  ]},options:{...CD,plugins:{...CD.plugins,legend:{display:false}},
+  scales:{x:{...CD.scales.x,ticks:{font:{size:8},maxTicksLimit:8}},
+    y:{...CD.scales.y,position:'left',min:0,max:100,ticks:{font:{size:8},callback:v=>v+'%'},
+      title:{display:true,text:'Renewable Share %',font:{size:8},color:'#22c55e'}},
+    y2:{position:'right',min:0,max:1.5,grid:{display:false},border:{display:false},
+      ticks:{font:{size:8},callback:v=>v+'%'},title:{display:true,text:'Realized Vol %',font:{size:8},color:'#e85858'}}
+  }}});
+
+  const step=1;
+  const pxDs=META.map(m=>{
+    const px=D.stocks[m.ticker].price,base=px[0]||1;
+    return{label:m.ticker.replace('.DE',''),data:px.map(v=>+((v/base)*100).toFixed(2)),
+      borderColor:m.c,backgroundColor:'transparent',tension:.3,pointRadius:0,
+      borderWidth:m.type==='generator'?2:1.5};
+  });
+  mk('ov-px',{type:'line',data:{labels:lb,datasets:pxDs},
+    options:{...CD,plugins:{...CD.plugins,legend:{display:true,position:'top',
+      labels:{font:{size:9},padding:8,boxWidth:10,boxHeight:2}}},
+    scales:{...CD.scales,y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>v}}}}});
+
+  const avg=v=>v.reduce((a,b)=>a+b,0)/v.length;
+  const totalAll=avg(D.daily_wind)+avg(D.daily_solar)+avg(D.daily_biomass)+avg(D.daily_hydro)+avg(D.daily_gas)+avg(D.daily_lignite);
+  document.getElementById('ov-mx').innerHTML=[
+    {n:'Wind (On+Off)',v:avg(D.daily_wind),c:'var(--bl)'},
+    {n:'Solar/PV',v:avg(D.daily_solar),c:'var(--am)'},
+    {n:'Biomass',v:avg(D.daily_biomass),c:'var(--tl)'},
+    {n:'Hydro',v:avg(D.daily_hydro),c:'#818cf8'},
+    {n:'Fossil Gas',v:avg(D.daily_gas),c:'#94a3b8'},
+    {n:'Lignite',v:avg(D.daily_lignite),c:'#78716c'},
+  ].map(m=>{
+    const pct=(m.v/totalAll*100).toFixed(1);
+    return '<div class="mix-row"><div class="mn2">'+m.n+'</div><div class="mt"><div class="mf" style="width:'+pct+'%;background:'+m.c+';"></div></div><div class="mp">'+pct+'%</div></div>';
+  }).join('');
+
+  document.getElementById('ov-corr').innerHTML=META.map(m=>{
+    const r=D.corrs[m.ticker];
+    const type=m.type==='consumer'?'<span class="type-consumer">Consumer</span>':'<span class="type-generator">Generator</span>';
+    return '<tr><td><span style="color:'+m.c+';font-family:var(--mn);font-size:11px;">'+m.ticker+'</span></td><td>'+type+'</td>'
+      +'<td class="r" style="color:'+(r<0?'var(--rd)':r>0.1?'var(--tl)':'var(--tx2)')+';">'+r.toFixed(3)+'</td></tr>';
+  }).join('');
+})();
+
+/* ─── SCREENER ─── */
+let AF='all',SK='price',SA=false,SEL=null;
+function setChip(f,b){AF=f;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));b.classList.add('on');rTable();}
+function sBy(k){document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));event.target.closest('th').classList.add('sorted');SK===k?SA=!SA:(SK=k,SA=false);rTable();}
+function rTable(){
+  const q=(document.getElementById('srch')||{}).value?.toLowerCase()||'';
+  let d=META.map(m=>{
+    const s=D.stocks[m.ticker];
+    const first=s.price[0],last=s.price[s.price.length-1];
+    const vols=s.rvol.filter(v=>v>0);
+    const avgVol=vols.reduce((a,b)=>a+b,0)/vols.length;
+    const grSig=GRANGER_SIG[m.ticker.replace('.DE','')]?.length>0;
+    return{...m,price:last,chg:+((last/first-1)*100).toFixed(2),rvol:+avgVol.toFixed(4),corr:D.corrs[m.ticker],grSig};
+  });
+  if(q)d=d.filter(c=>c.ticker.toLowerCase().includes(q)||c.name.toLowerCase().includes(q));
+  if(AF==='consumer')d=d.filter(c=>c.type==='consumer');
+  if(AF==='generator')d=d.filter(c=>c.type==='generator');
+  if(AF==='sig')d=d.filter(c=>c.grSig);
+  d.sort((a,b)=>{let va=a[SK],vb=b[SK];return typeof va==='string'?(SA?va.localeCompare(vb):vb.localeCompare(va)):(SA?va-vb:vb-va);});
+  const tb=m=>m.type==='consumer'?'<span class="type-consumer">Consumer</span>':'<span class="type-generator">Generator</span>';
+  document.getElementById('tbdy').innerHTML=d.length===0?'<tr><td colspan="8" style="text-align:center;padding:24px;font-family:var(--mn);font-size:11px;color:var(--tx3);">No results</td></tr>'
+    :d.map((c,i)=>'<tr class="'+(c.ticker===SEL?'sel':'')+'" onclick="openDrw(\''+c.ticker+'\')" style="animation:fu .3s '+(i*.04)+'s ease both;">'
+      +'<td><div class="tk">'+c.ticker+'</div><div class="cn">'+c.name+'</div></td>'
+      +'<td><span class="sector-badge">'+c.sector+'</span></td>'
+      +'<td>'+tb(c)+'</td>'
+      +'<td class="r">€'+c.price.toFixed(2)+'</td>'
+      +'<td class="r '+(c.chg>0?'up':'dn')+'">'+(c.chg>=0?'+':'')+c.chg.toFixed(2)+'%</td>'
+      +'<td class="r" style="color:var(--tx2);">'+c.rvol.toFixed(4)+'%</td>'
+      +'<td class="r" style="color:'+(c.corr<-.05?'var(--rd)':c.corr>.05?'var(--tl)':'var(--tx2)')+';">'+c.corr.toFixed(3)+'</td>'
+      +'<td>'+(c.grSig?'<span style="color:var(--tl);font-family:var(--mn);font-size:10px;">✅ Significant</span>':'<span style="color:var(--tx3);font-family:var(--mn);font-size:10px;">— Not sig.</span>')+'</td>'
+      +'</tr>').join('');
+}
+rTable();
+
+/* ─── DRAWER ─── */
+function openDrw(tk){
+  const m=META.find(x=>x.ticker===tk);if(!m)return;
+  SEL=tk;rTable();
+  const s=D.stocks[tk],lb=D.daily_labels;
+  const first=s.price[0],last=s.price[s.price.length-1],chg=((last/first-1)*100).toFixed(2);
+  document.getElementById('d-tk').textContent=tk;document.getElementById('d-tk').style.color=m.c;
+  document.getElementById('d-nm').textContent=m.name+' · '+m.sector+' · '+(m.type==='consumer'?'Energy Consumer':'Energy Generator');
+  document.getElementById('d-stats').innerHTML=
+    '<div class="dsc"><div class="dsl">Q1 End Price</div><div class="dsv">€'+last.toFixed(2)+'</div></div>'
+    +'<div class="dsc"><div class="dsl">Q1 Change</div><div class="dsv" style="color:'+(chg>0?'var(--tl)':'var(--rd)')+';">'+(chg>=0?'+':'')+chg+'%</div></div>'
+    +'<div class="dsc"><div class="dsl">Pearson ρ</div><div class="dsv" style="color:'+(D.corrs[tk]<0?'var(--rd)':'var(--tl)')+';">'+D.corrs[tk].toFixed(3)+'</div></div>'
+    +'<div class="dsc"><div class="dsl">OLS β</div><div class="dsv" style="color:'+(BETAS[tk]<0?'var(--tl)':'var(--rd)')+';">'+(BETAS[tk]>=0?'+':'')+BETAS[tk].toFixed(5)+'</div></div>';
+  document.getElementById('d-bot').innerHTML='<div style="background:var(--bg3);border-radius:var(--r);padding:12px;">'
+    +'<div class="sr"><div class="sk">Sector</div><div class="sv2">'+m.sector+'</div></div>'
+    +'<div class="sr"><div class="sk">Type</div><div class="sv2" style="color:'+(m.type==='consumer'?'var(--am)':'var(--tl)')+';">'+(m.type==='consumer'?'Energy Consumer':'Energy Generator')+'</div></div>'
+    +'<div class="sr"><div class="sk">R² (feed-in vs vol)</div><div class="sv2">'+((D.corrs[tk]**2).toFixed(4))+'</div></div>'
+    +'<div class="sr"><div class="sk">Granger Signal</div><div class="sv2" style="color:'+(GRANGER_SIG[tk.replace('.DE','')]?.length?'var(--tl)':'var(--tx3)')+';">'+(GRANGER_SIG[tk.replace('.DE','')]?.length?'✅ Significant at lag '+GRANGER_SIG[tk.replace('.DE','')].join(', '):'❌ Not significant')+'</div></div>'
+    +'<div class="sr"><div class="sk">Observations</div><div class="sv2">62 trading days</div></div>'
+    +'</div>'
+    +'<div class="biz-box" style="margin-top:12px;"><div class="biz-label">Company Context</div>'
+    +(m.type==='consumer'?'<div class="biz-text">As an energy consumer, '+m.name+' faces higher operating costs when electricity prices rise. Its volatility pattern is influenced by cost pressures during low-renewable periods.</div>'
+    :'<div class="biz-text">As an energy generator, '+m.name+' sells electricity to the grid. Revenue uncertainty during renewable shifts drives speculative trading and elevated volatility.</div>')
+    +'</div>';
+  mk('d-price',{type:'line',data:{labels:lb,datasets:[{data:s.price_norm,borderColor:m.c,backgroundColor:m.c+'22',fill:true,tension:.3,pointRadius:0,borderWidth:1.8}]},
+    options:{...CD,scales:{...CD.scales,y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>v}}}}});
+  mk('d-vol',{type:'line',data:{labels:lb,datasets:[{data:s.rvol,borderColor:'#f0a820',backgroundColor:'transparent',tension:.3,pointRadius:0,borderWidth:1.5}]},
+    options:{...CD,scales:{...CD.scales,y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>v+'%'}}}}});
+  document.getElementById('drw').classList.add('open');
+}
+function closeDrw(){document.getElementById('drw').classList.remove('open');SEL=null;rTable();}
+
+/* ─── CORRELATION ─── */
+let CA=null,CC=null;
+function rCorr(){
+  if(!CA)CA=META.map(m=>m.ticker);
+  document.getElementById('ctog').innerHTML=META.map(m=>'<button class="tb '+(CA.includes(m.ticker)?'on':'')+'" onclick="togC(\''+m.ticker+'\')" style="'+(CA.includes(m.ticker)?'border-color:'+m.c:'')+'">'+m.ticker.replace('.DE','')+'</button>').join('');
+  const fiS=D.daily_feedin;
+  const datasets=META.filter(m=>CA.includes(m.ticker)).map(m=>({
+    label:m.ticker.replace('.DE',''),
+    data:fiS.map((f,i)=>({x:f,y:D.stocks[m.ticker].rvol[i]})),
+    backgroundColor:m.c+'99',borderColor:m.c,pointRadius:4,borderWidth:1
+  }));
+  if(CC)CC.destroy();
+  CC=new Chart(document.getElementById('co-sc'),{type:'scatter',data:{datasets},
+    options:{...CD,plugins:{...CD.plugins,legend:{display:true,position:'top',labels:{font:{size:9},padding:10,boxWidth:8,boxHeight:8}}},
+    scales:{x:{...CD.scales.x,title:{display:true,text:'Daily Average Renewable Share %',font:{size:10}},ticks:{font:{size:9},callback:v=>v+'%'}},
+      y:{...CD.scales.y,title:{display:true,text:'Daily Average Realized Volatility %',font:{size:10}},ticks:{font:{size:9},callback:v=>v+'%'}}}}});
+  document.getElementById('co-mx').innerHTML=META.map(m=>{
+    const r=D.corrs[m.ticker],r2=(r**2).toFixed(4);
+    const str=Math.abs(r)>.15?'Moderate':Math.abs(r)>.05?'Weak':'Near zero';
+    const type=m.type==='consumer'?'<span class="type-consumer">Consumer</span>':'<span class="type-generator">Generator</span>';
+    return '<tr><td style="color:'+m.c+';font-family:var(--mn);font-size:11px;">'+m.ticker+'</td>'
+      +'<td>'+type+'</td>'
+      +'<td class="r" style="color:'+(r<-.05?'var(--rd)':r>.05?'var(--tl)':'var(--tx2)')+';">'+r.toFixed(3)+'</td>'
+      +'<td class="r">'+r2+'</td>'
+      +'<td class="r" style="font-size:10px;color:var(--tx2);">'+str+'</td>'
+      +'<td class="r" style="font-size:10px;color:var(--tx2);">'+(r<-.05?'↓ Lower vol w/ ↑feed-in':r>.05?'↑ Higher vol w/ ↑feed-in':'No clear direction')+'</td></tr>';
+  }).join('');
+  document.getElementById('co-r2').innerHTML=META.map(m=>{
+    const r2=D.corrs[m.ticker]**2;
+    return '<div style="margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:3px;font-family:var(--mn);font-size:10px;">'
+      +'<span style="color:'+m.c+';">'+m.ticker.replace('.DE','')+'</span>'
+      +'<span>'+m.name.split(' ')[0]+' · R²='+(r2.toFixed(4))+'</span></div>'
+      +'<div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;">'
+      +'<div style="height:100%;width:'+(r2*100*4).toFixed(0)+'%;max-width:100%;background:'+m.c+';border-radius:2px;"></div></div>'
+      +'<div style="font-family:var(--mn);font-size:9px;color:var(--tx3);margin-top:2px;">'+(r2*100).toFixed(1)+'% of volatility variance explained by feed-in</div>'
+      +'</div>';
+  }).join('');
+}
+function togC(tk){const i=(CA||[]).indexOf(tk);if(i>-1)CA.splice(i,1);else CA.push(tk);rCorr();}
+rCorr();
+
+/* ─── GRANGER ─── */
+function renderGranger(){
+  const sectorOf=tk=>{const m=META.find(x=>x.ticker===tk+'.DE');return m?m.sector:'-';};
+  const typeOf=tk=>{const m=META.find(x=>x.ticker===tk+'.DE');return m?m.type:'consumer';};
+  document.getElementById('gr-body').innerHTML=D.granger.map(g=>{
+    const type=typeOf(g.stock);
+    const typeBadge=type==='consumer'?'<span class="type-consumer">Consumer</span>':'<span class="type-generator">Generator</span>';
+    const isSig=g.sig;
+    const interp=isSig?('Past feed-in predicts '+g.stock+' volatility '+g.lag+' day'+(g.lag>1?'s':'')+'  ahead'):'No predictive relationship found';
+    return '<tr class="'+(isSig?'gr-highlight':'')+'">'
+      +'<td><strong style="font-family:var(--mn);font-size:12px;'+(isSig?'color:var(--tl)':'')+'">'+g.stock+'</strong></td>'
+      +'<td><span class="sector-badge">'+sectorOf(g.stock)+'</span></td>'
+      +'<td>'+typeBadge+'</td>'
+      +'<td class="r">'+g.lag+'</td>'
+      +'<td class="r">'+g.f.toFixed(3)+'</td>'
+      +'<td class="r" style="color:'+(g.p<.05?'var(--tl)':'var(--tx2)')+';">'+g.p.toFixed(4)+'</td>'
+      +'<td class="r">'+(isSig?'<span class="gr-sig">✅ YES (p&lt;0.05)</span>':'<span class="gr-no">❌ No</span>')+'</td>'
+      +'<td style="font-family:var(--mn);font-size:10px;color:'+(isSig?'var(--tl)':'var(--tx3)')+';">'+interp+'</td>'
+      +'</tr>';
+  }).join('');
+}
+renderGranger();
+
+/* ─── TRADING SIGNALS ─── */
+function getSig(dp){
+  if(dp>0.05)return{label:'Strong Buy',cls:'ssb',icon:'▲▲'};
+  if(dp>0.01)return{label:'Buy',cls:'sb',icon:'▲'};
+  if(dp>-.01)return{label:'Hold',cls:'sh',icon:'–'};
+  if(dp>-.05)return{label:'Sell',cls:'ss',icon:'▼'};
+  return{label:'Strong Sell',cls:'sss',icon:'▼▼'};
+}
+function setTr(v){document.getElementById('tr-sl').value=v;runTr();}
+function runTr(){
+  const delta=+document.getElementById('tr-sl').value;
+  document.getElementById('tr-fv').textContent=(delta>=0?'+':'')+delta+'%';
+  const impacts=META.map(m=>{const b=BETAS[m.ticker],dp=+(b*delta).toFixed(5);return{...m,beta:b,dp,sig:getSig(dp)};});
+  const buys=impacts.filter(c=>c.dp>0.01).length,sells=impacts.filter(c=>c.dp<-.01).length;
+  const sumColor=delta>0?'var(--rd)':delta<0?'var(--tl)':'var(--tx2)';
+  document.getElementById('tr-sum').innerHTML='<span style="color:'+sumColor+';">'+(delta>=0?'+':'')+delta+'% feed-in change</span>';
+  const vdColor=delta>=0?'var(--rd)':'var(--tl)';
+  document.getElementById('tr-vd').innerHTML=
+    'ΔFeed-in = <strong style="color:'+vdColor+';">'+(delta>=0?'+':'')+delta+'%</strong><br>'
+    +'Predicted: <span style="color:var(--rd);">'+buys+' ↑ vol</span> · <span style="color:var(--tx3);">'+impacts.filter(c=>Math.abs(c.dp)<=.01).length+' neutral</span> · <span style="color:var(--tl);">'+sells+' ↓ vol</span><br>'
+    +(delta<0?'<span style="color:var(--am);">⚠ Low feed-in scenario — potential H₁ stress condition</span>':'<span style="color:var(--tl);">✅ High renewable scenario — reduced energy cost pressure</span>');
+  const maxAbs=Math.max(0.0001,...impacts.map(c=>Math.abs(c.dp)));
+  document.getElementById('tr-bars').innerHTML=impacts.map(c=>{
+    const pct=Math.abs(c.dp)/maxAbs*44,isPos=c.dp>=0;
+    const barColor=isPos?'var(--rd)':'var(--tl)';
+    const pctColor=isPos?'var(--rd)':'var(--tl)';
+    const type=c.type==='consumer'?'<span class="type-consumer" style="font-size:8px;">Con</span>':'<span class="type-generator" style="font-size:8px;">Gen</span>';
+    return '<div class="impact-row"><div class="imp-tick" style="color:'+c.c+';">'+c.ticker.replace('.DE','')+'</div>'
+      +'<div class="imp-bar-wrap"><div class="imp-zero"></div><div class="imp-bar" style="background:'+barColor+';width:'+pct+'%;left:'+(isPos?'50%':'calc(50% - '+pct+'%)')+'"></div></div>'
+      +'<div class="imp-pct" style="color:'+pctColor+';">'+(c.dp>=0?'+':'')+c.dp.toFixed(5)+'%</div>'
+      +'<div class="imp-sig"><span class="sp '+c.sig.cls+'">'+c.sig.icon+' '+c.sig.label+'</span></div></div>';
+  }).join('');
+  document.getElementById('tr-beta').innerHTML=META.map(m=>{
+    const betaColor=BETAS[m.ticker]>0?'var(--rd)':'var(--tl)';
+    const corrColor=D.corrs[m.ticker]>0.05?'var(--tl)':D.corrs[m.ticker]<-.05?'var(--rd)':'var(--tx2)';
+    const type=m.type==='consumer'?'<span class="type-consumer" style="font-size:8px;">Con</span>':'<span class="type-generator" style="font-size:8px;">Gen</span>';
+    return '<tr><td style="color:'+m.c+';font-family:var(--mn);font-size:11px;">'+m.ticker.replace('.DE','')+'</td>'
+      +'<td>'+type+'</td>'
+      +'<td class="r" style="color:'+betaColor+';">'+(BETAS[m.ticker]>=0?'+':'')+BETAS[m.ticker].toFixed(6)+'</td>'
+      +'<td class="r" style="color:'+corrColor+';">'+D.corrs[m.ticker].toFixed(3)+'</td></tr>';
+  }).join('');
+  mk('tr-el',{type:'line',data:{labels:Array.from({length:61},(_,i)=>(i-30>=0?'+':'')+(i-30)+'%'),
+    datasets:META.map(m=>({label:m.ticker.replace('.DE',''),
+      data:Array.from({length:61},(_,i)=>+(BETAS[m.ticker]*(i-30)*100).toFixed(5)),
+      borderColor:m.c,backgroundColor:'transparent',tension:0,pointRadius:0,borderWidth:1.5}))},
+    options:{...CD,plugins:{...CD.plugins,legend:{display:true,position:'top',labels:{font:{size:9},padding:8,boxWidth:10,boxHeight:2}}},
+    scales:{x:{...CD.scales.x,ticks:{font:{size:9},maxTicksLimit:10},title:{display:true,text:'ΔFeed-in %',font:{size:9}}},
+      y:{...CD.scales.y,ticks:{font:{size:9},callback:v=>(v>=0?'+':'')+v+'%'},title:{display:true,text:'Δ Predicted Vol %',font:{size:9}}}}}});
+}
+runTr();
+
+/* ═══════════════════════════════════════════════════════════
+   TRANSMISSION & LAG PAGE — JavaScript
+   LAG_DATA contains REAL computed values from 557 hourly obs.
+   All r and p values from Pearson correlation (scipy.stats).
+   EPEX sections are placeholders — no fake data included.
+   ═══════════════════════════════════════════════════════════ */
+const LAG_DATA = {"lags": {"BMW.DE": {"1": {"r": 0.004, "p": 0.929, "sig": false}, "3": {"r": -0.03, "p": 0.475, "sig": false}, "6": {"r": -0.014, "p": 0.745, "sig": false}, "12": {"r": 0.018, "p": 0.682, "sig": false}, "24": {"r": -0.043, "p": 0.324, "sig": false}}, "MBG.DE": {"1": {"r": -0.054, "p": 0.208, "sig": false}, "3": {"r": -0.098, "p": 0.022, "sig": true}, "6": {"r": -0.091, "p": 0.034, "sig": true}, "12": {"r": -0.058, "p": 0.18, "sig": false}, "24": {"r": -0.158, "p": 0.0, "sig": true}}, "VOW3.DE": {"1": {"r": 0.037, "p": 0.386, "sig": false}, "3": {"r": -0.009, "p": 0.824, "sig": false}, "6": {"r": 0.004, "p": 0.924, "sig": false}, "12": {"r": 0.034, "p": 0.433, "sig": false}, "24": {"r": -0.032, "p": 0.465, "sig": false}}, "SIE.DE": {"1": {"r": 0.137, "p": 0.001, "sig": true}, "3": {"r": 0.111, "p": 0.009, "sig": true}, "6": {"r": 0.118, "p": 0.006, "sig": true}, "12": {"r": 0.125, "p": 0.004, "sig": true}, "24": {"r": 0.122, "p": 0.005, "sig": true}}, "RWE.DE": {"1": {"r": 0.186, "p": 0.0, "sig": true}, "3": {"r": 0.171, "p": 0.0, "sig": true}, "6": {"r": 0.185, "p": 0.0, "sig": true}, "12": {"r": 0.111, "p": 0.009, "sig": true}, "24": {"r": 0.313, "p": 0.0, "sig": true}}, "EOAN.DE": {"1": {"r": 0.095, "p": 0.027, "sig": true}, "3": {"r": 0.1, "p": 0.02, "sig": true}, "6": {"r": 0.149, "p": 0.001, "sig": true}, "12": {"r": 0.203, "p": 0.0, "sig": true}, "24": {"r": 0.366, "p": 0.0, "sig": true}}}, "shock_vol": {"BMW.DE": {"shock": 0.5403, "normal": 0.6046, "ratio": 0.89}, "MBG.DE": {"shock": 0.5343, "normal": 0.622, "ratio": 0.86}, "VOW3.DE": {"shock": 0.5129, "normal": 0.6153, "ratio": 0.83}, "SIE.DE": {"shock": 0.5505, "normal": 0.7296, "ratio": 0.75}, "RWE.DE": {"shock": 0.4625, "normal": 0.624, "ratio": 0.74}, "EOAN.DE": {"shock": 0.424, "normal": 0.5142, "ratio": 0.82}}, "shock_threshold": 42.8};
+
+const META_LAG = [
+  {tk:'BMW.DE',  name:'BMW AG',        sec:'Automotive',   type:'consumer',  c:'#5f9cf8'},
+  {tk:'MBG.DE',  name:'Mercedes-Benz', sec:'Automotive',   type:'consumer',  c:'#a78bfa'},
+  {tk:'VOW3.DE', name:'Volkswagen',    sec:'Automotive',   type:'consumer',  c:'#fb923c'},
+  {tk:'SIE.DE',  name:'Siemens AG',   sec:'Industrial',   type:'consumer',  c:'#f472b6'},
+  {tk:'RWE.DE',  name:'RWE AG',       sec:'Energy/Util.', type:'generator', c:'#12d4a6'},
+  {tk:'EOAN.DE', name:'E.ON SE',      sec:'Energy/Util.', type:'generator', c:'#f0a820'},
+];
+
+/* Color cell by r magnitude and significance */
+function lagCellStyle(r, sig) {
+  const a = Math.abs(r);
+  if (a < 0.05)  return 'background:#061a0c;color:#2a6b3a;border-radius:6px;';
+  if (a < 0.12)  return 'background:#2a1f00;color:#c49a2a;border-radius:6px;';
+  return             'background:#2a0808;color:#e06060;border-radius:6px;';
+}
+
+/* Build lag heatmap table */
+function renderLagTable() {
+  const tbody = document.getElementById('lag-tbody');
+  if (!tbody) return;
+  const lags = ['1','3','6','12','24'];
+
+  tbody.innerHTML = META_LAG.map(m => {
+    const d = LAG_DATA.lags[m.tk];
+    const typeBadge = m.type === 'consumer'
+      ? '<span class="type-consumer" style="font-size:9px;">Consumer</span>'
+      : '<span class="type-generator" style="font-size:9px;">Generator</span>';
+
+    const sigLags = lags.filter(l => d[l].sig);
+    let pattern;
+    if (sigLags.length === 0)      pattern = '<span style="color:var(--tx3);">No signal</span>';
+    else if (sigLags.length >= 4)  pattern = '<span style="color:var(--rd);">Persistent (all lags)</span>';
+    else if (sigLags.length >= 2)  pattern = '<span style="color:var(--am);">Partial ('+sigLags.map(l=>l+'h').join(', ')+')</span>';
+    else                           pattern = '<span style="color:var(--am);">Single lag ('+sigLags[0]+'h)</span>';
+
+    const cells = lags.map(l => {
+      const cell = d[l];
+      const style = lagCellStyle(cell.r, cell.sig);
+      const sigMark = cell.sig ? '<span style="color:inherit;font-weight:700;">*</span>' : '';
+      const sign = cell.r >= 0 ? '+' : '';
+      return `<td style="text-align:center;padding:8px 10px;${style}">
+        <div style="font-family:var(--mn);font-size:11px;font-weight:500;">${sign}${cell.r.toFixed(3)}${sigMark}</div>
+        <div style="font-family:var(--mn);font-size:8px;opacity:.65;margin-top:2px;">p=${cell.p.toFixed(3)}</div>
+      </td>`;
+    }).join('');
+
+    return `<tr>
+      <td style="padding:8px 14px;white-space:nowrap;">
+        <span style="color:${m.c};font-family:var(--mn);font-size:12px;font-weight:500;">${m.tk}</span>
+        <div style="font-family:var(--mn);font-size:10px;color:var(--tx3);">${m.name}</div>
+      </td>
+      <td style="padding:8px 8px;">${typeBadge}</td>
+      ${cells}
+      <td style="padding:8px 14px;white-space:nowrap;">${pattern}</td>
+    </tr>`;
+  }).join('');
+
+  /* Business interpretation — based on real results */
+  const interpEl = document.getElementById('lag-interp');
+  if (interpEl) {
+    interpEl.innerHTML = `
+      The lag analysis reveals that <strong style="color:var(--tl);">Siemens (SIE), RWE, and E.ON (EOAN)</strong>
+      show statistically significant positive correlations between past renewable feed-in and future stock volatility
+      <strong>across all tested hourly lag windows (1h through 24h)</strong>.
+      This suggests that the relationship between energy supply and equity risk is not instantaneous
+      but may persist within and across trading sessions.
+      <br><br>
+      <strong style="color:var(--tx);">E.ON shows the strongest 24-hour signal (r = +0.366, p &lt; 0.001)</strong>,
+      suggesting a possible next-day risk transmission effect for utility stocks —
+      consistent with energy markets partially pricing in renewable forecasts while equity markets react with a lag.
+      <strong style="color:var(--a78bfa);">Mercedes-Benz (MBG)</strong> shows a significant negative correlation
+      at 3h, 6h, and 24h (r = −0.098 to −0.158) — higher feed-in correlates with lower volatility after a delay,
+      consistent with reduced electricity cost uncertainty during renewable-rich periods.
+      BMW and Volkswagen show no significant signal at any lag.
+      <br><br>
+      <em style="color:var(--tx3);">
+        Important: these are correlational findings from 557 hourly observations in Q1 2026.
+        They suggest a timing relationship — not structural causation.
+        Adding EPEX spot price data as an intermediate variable would allow a more complete causal chain test.
+      </em>
+    `;
+  }
+}
+
+/* Shock comparison bar chart */
+function renderShockChart() {
+  const el = document.getElementById('shock-chart');
+  if (!el) return;
+  const sv = LAG_DATA.shock_vol;
+  const labels = META_LAG.map(m => m.tk.replace('.DE',''));
+  const shockVals  = META_LAG.map(m => sv[m.tk].shock);
+  const normalVals = META_LAG.map(m => sv[m.tk].normal);
+
+  mk('shock-chart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Low feed-in (<42.8%, bottom 25th pct)',
+          data: shockVals,
+          backgroundColor: 'rgba(232,88,88,0.55)',
+          borderColor: '#e85858',
+          borderWidth: 1,
+          borderRadius: 4
+        },
+        {
+          label: 'High feed-in (>42.8%)',
+          data: normalVals,
+          backgroundColor: 'rgba(18,212,166,0.45)',
+          borderColor: '#12d4a6',
+          borderWidth: 1,
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      ...CD,
+      plugins: {
+        ...CD.plugins,
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { font: { size: 10 }, padding: 12, boxWidth: 12, boxHeight: 8 }
+        }
+      },
+      scales: {
+        x: { ...CD.scales.x, ticks: { font: { size: 11 } } },
+        y: {
+          ...CD.scales.y,
+          ticks: { font: { size: 10 }, callback: v => v.toFixed(2) + '%' },
+          title: { display: true, text: 'Avg Realized Volatility %', font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE: TRANSMISSION & INTRADAY LAG ANALYSIS
+     Real lag data from 557 hourly observations, Q1 2026.
+     EPEX spot price section is a placeholder — see note below.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="page" id="p-tx"><div class="c">
+
+  <div class="ph">
+    <div class="ph-title">Price Transmission <span>&amp; Intraday Lags</span></div>
+    <div class="ph-sub">Testing the full chain: Renewable feed-in shock → electricity price pressure → DAX stock volatility · Real hourly lag analysis at 1h, 3h, 6h, 12h, and 24h</div>
+  </div>
+
+  <!-- ── TRANSMISSION CHAIN DIAGRAM ── -->
+  <div style="margin-bottom:24px;">
+    <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-bottom:12px;">Transmission Chain Hypothesis</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:stretch;gap:0;border:1px solid var(--b);border-radius:var(--rl);overflow:hidden;background:var(--bg2);">
+
+      <!-- Step 1: Feed-in -->
+      <div style="padding:22px 24px;border-right:1px solid var(--b);">
+        <div style="font-size:26px;margin-bottom:10px;">🌬️</div>
+        <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--bl);margin-bottom:6px;font-weight:600;">Step 1 · Grid Input</div>
+        <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px;">Renewable Feed-in Shock</div>
+        <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.75;">Wind or solar generation falls below expected levels. The grid draws more from conventional sources — gas and lignite — which are significantly more expensive per MWh.</div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;font-family:var(--mn);font-size:9px;color:var(--bl);"><span style="width:6px;height:6px;border-radius:50%;background:var(--bl);display:inline-block;"></span>Source: SMARD.de · Bundesnetzagentur · Real data ✓</div>
+      </div>
+
+      <!-- Arrow 1 -->
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;background:var(--bg3);gap:4px;min-width:40px;">
+        <div style="font-size:16px;color:var(--am);">→</div>
+        <div style="font-family:var(--mn);font-size:8px;color:var(--tx3);text-align:center;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.05em;">Merit-Order</div>
+      </div>
+
+      <!-- Step 2: EPEX (placeholder) -->
+      <div style="padding:22px 24px;border-right:1px solid var(--b);position:relative;">
+        <div style="position:absolute;top:12px;right:12px;font-family:var(--mn);font-size:9px;padding:3px 8px;border-radius:3px;background:var(--am2);color:var(--am);border:1px solid rgba(240,168,32,.3);letter-spacing:.03em;">⏳ Data Pending</div>
+        <div style="font-size:26px;margin-bottom:10px;">⚡</div>
+        <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--am);margin-bottom:6px;font-weight:600;">Step 2 · Price Pressure</div>
+        <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px;">EPEX Spot Price Change</div>
+        <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.75;">Conventional plant activation may push wholesale electricity prices upward. This suggests a possible transmission channel from grid stress to energy cost exposure for industrial companies.</div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;font-family:var(--mn);font-size:9px;color:var(--am);"><span style="width:6px;height:6px;border-radius:50%;background:var(--am);display:inline-block;animation:blink 2s infinite;"></span>EPEX Spot data not yet connected — see note below</div>
+      </div>
+
+      <!-- Arrow 2 -->
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 4px;background:var(--bg3);gap:4px;min-width:40px;">
+        <div style="font-size:16px;color:var(--am);">→</div>
+        <div style="font-family:var(--mn);font-size:8px;color:var(--tx3);text-align:center;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.05em;">Risk Signal</div>
+      </div>
+
+      <!-- Step 3: Volatility -->
+      <div style="padding:22px 24px;">
+        <div style="font-size:26px;margin-bottom:10px;">📊</div>
+        <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--tl);margin-bottom:6px;font-weight:600;">Step 3 · Market Signal</div>
+        <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px;">DAX Stock Volatility</div>
+        <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.75;">Energy cost uncertainty may appear as elevated intraday stock volatility for energy-intensive DAX companies. The lag analysis below tests whether this signal appears 1h to 24h after a feed-in shock.</div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:6px;font-family:var(--mn);font-size:9px;color:var(--tl);"><span style="width:6px;height:6px;border-radius:50%;background:var(--tl);display:inline-block;"></span>Source: Yahoo Finance · yfinance · Real data ✓</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.7;padding:0 2px;">
+      ⚠ This diagram represents a <em>hypothesized</em> transmission chain. The direct feed-in → volatility relationship is tested with real Q1 2026 hourly data. The EPEX price step is the theoretical mechanism — it has not been directly measured in this dataset due to data availability. Results show a predictive relationship, not proof of structural causation.
+    </div>
+  </div>
+
+  <!-- ── EPEX SECTION ── -->
+  <!--
+    NOTE FOR DATA CONNECTION:
+    To activate EPEX analysis, download hourly EPEX Spot Day-Ahead prices from SMARD.de:
+    URL: https://www.smard.de → Market Data → Wholesale Electricity Prices → Day-Ahead
+    Then merge with existing Stock_energy_data_merged.csv on the 'Start date' column.
+    Once connected, replace the placeholder below with:
+      - Renewable share vs EPEX price scatter chart
+      - EPEX price timeline with shock windows highlighted
+      - Average EPEX price: shock periods vs normal periods
+  -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="ch">
+      <div>
+        <div class="ct">EPEX Spot Electricity Price — The Transmission Variable</div>
+        <div class="ct-sub">How feed-in shocks may reach stock markets through wholesale electricity pricing</div>
+      </div>
+      <span style="font-family:var(--mn);font-size:10px;padding:5px 12px;border-radius:4px;background:var(--am2);color:var(--am);border:1px solid rgba(240,168,32,.3);letter-spacing:.03em;white-space:nowrap;">⏳ EPEX data not yet connected</span>
+    </div>
+    <div class="cb">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+        <!-- Left: Why EPEX matters -->
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:12px;">Why EPEX Spot Prices Are the Missing Link</div>
+          <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.85;margin-bottom:16px;">
+            The European Power Exchange (EPEX) sets <strong style="color:var(--tx);">hourly wholesale electricity prices</strong> in Germany. When renewable generation falls short, gas and coal plants — which operate at significantly higher marginal cost — fill the gap. This may push spot prices upward via the <strong style="color:var(--am);">Merit-Order Effect</strong>: when cheaper plants are exhausted, progressively more expensive sources set the price.
+          </div>
+
+          <!-- Consumer vs Generator cards -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="background:var(--bg3);border-radius:var(--r);padding:14px 16px;border-left:3px solid var(--am);">
+              <div style="font-family:var(--mn);font-size:10px;font-weight:600;color:var(--am);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;">⚡ Energy Consumers (BMW, MBG, VOW3, SIE)</div>
+              <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">Higher spot prices may increase production input costs, compress operating margins, and create earnings uncertainty — this may appear as elevated stock volatility.</div>
+            </div>
+            <div style="background:var(--bg3);border-radius:var(--r);padding:14px 16px;border-left:3px solid var(--tl);">
+              <div style="font-family:var(--mn);font-size:10px;font-weight:600;color:var(--tl);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em;">🔋 Energy Generators (RWE, EOAN)</div>
+              <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.7;">Price spikes create revenue uncertainty and may attract speculative trading — raising stock volatility even for companies that may benefit from higher selling prices.</div>
+            </div>
+          </div>
+
+          <!-- Methodology -->
+          <div style="margin-top:14px;background:var(--bg3);border-radius:var(--r);padding:14px 16px;border:1px solid var(--b);">
+            <div style="font-family:var(--mn);font-size:10px;font-weight:600;color:var(--bl);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">📋 Methodology — Once EPEX Data Is Connected</div>
+            <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);line-height:1.9;">
+              1. Align hourly SMARD renewable feed-in with EPEX spot prices<br>
+              2. Compute renewable share and identify low-feed-in shock windows (below 25th percentile)<br>
+              3. Align with hourly DAX stock price data and compute log-return realized volatility<br>
+              4. Test lagged relationships at 1h, 3h, 6h, 12h, and 24h windows<br>
+              5. Compare whether feed-in + price model outperforms feed-in-only model
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Placeholder chart area -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <!-- Chart placeholder 1 -->
+          <div style="flex:1;background:var(--bg3);border:2px dashed rgba(240,168,32,.3);border-radius:var(--rl);padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:140px;">
+            <div style="font-size:24px;margin-bottom:8px;">📈</div>
+            <div style="font-family:var(--mn);font-size:11px;font-weight:600;color:var(--am);margin-bottom:6px;">Renewable Share vs EPEX Spot Price</div>
+            <div style="font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.6;max-width:220px;">Scatter chart showing feed-in % on X-axis vs hourly EPEX spot price (€/MWh) on Y-axis. Expected: negative slope confirming Merit-Order Effect.</div>
+            <div style="margin-top:10px;font-family:var(--mn);font-size:9px;padding:4px 12px;border:1px solid rgba(240,168,32,.3);border-radius:4px;color:var(--am);">⏳ Awaiting EPEX data from SMARD.de</div>
+          </div>
+          <!-- Chart placeholder 2 -->
+          <div style="flex:1;background:var(--bg3);border:2px dashed rgba(240,168,32,.3);border-radius:var(--rl);padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:140px;">
+            <div style="font-size:24px;margin-bottom:8px;">⚖️</div>
+            <div style="font-family:var(--mn);font-size:11px;font-weight:600;color:var(--am);margin-bottom:6px;">Avg EPEX Price: Shock vs Normal Periods</div>
+            <div style="font-family:var(--mn);font-size:10px;color:var(--tx3);line-height:1.6;max-width:220px;">Bar comparison of average hourly wholesale price during low-feed-in shock periods (&lt;25th percentile) vs normal periods.</div>
+            <div style="margin-top:10px;font-family:var(--mn);font-size:9px;padding:4px 12px;border:1px solid rgba(240,168,32,.3);border-radius:4px;color:var(--am);">⏳ Awaiting EPEX data from SMARD.de</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LAG HEATMAP TABLE ── -->
+  <!--
+    NOTE FOR LAG DATA:
+    The lag correlation values below are REAL — computed from 557 hourly observations
+    in Stock_energy_data_merged.csv using Pearson r between feedin_pct[t] and
+    realized_vol[t+lag] for lags 1h, 3h, 6h, 12h, 24h.
+    * = statistically significant at p < 0.05
+    No placeholder data — all cells contain real computed statistics.
+  -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="ch">
+      <div>
+        <div class="ct">Intraday Lag Analysis: When Does Feed-in Appear in Stock Volatility?</div>
+        <div class="ct-sub">Pearson r between renewable feed-in at time t and realized volatility at time t+lag · 557 hourly observations · Q1 2026 · Real computed values</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span style="font-family:var(--mn);font-size:9px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#061a0c;border:1px solid #1a4a25;display:inline-block;"></span>Weak / No signal</span>
+        <span style="font-family:var(--mn);font-size:9px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#2a1f00;border:1px solid #5a4010;display:inline-block;"></span>Moderate signal</span>
+        <span style="font-family:var(--mn);font-size:9px;display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:#2a0808;border:1px solid #5a1515;display:inline-block;"></span>Strong signal</span>
+        <span style="font-family:var(--mn);font-size:9px;color:var(--tx3);">* = p &lt; 0.05</span>
+      </div>
+    </div>
+    <div style="overflow-x:auto;padding:4px;">
+      <table style="width:100%;border-collapse:separate;border-spacing:4px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:10px 14px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);white-space:nowrap;">Company</th>
+            <th style="text-align:left;padding:10px 8px;font-family:var(--mn);font-size:10px;color:var(--tx3);">Type</th>
+            <th style="text-align:center;padding:10px 8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);">1h lag</th>
+            <th style="text-align:center;padding:10px 8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);">3h lag</th>
+            <th style="text-align:center;padding:10px 8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);">6h lag</th>
+            <th style="text-align:center;padding:10px 8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);">12h lag</th>
+            <th style="text-align:center;padding:10px 8px;font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3);">24h lag</th>
+            <th style="text-align:left;padding:10px 14px;font-family:var(--mn);font-size:10px;color:var(--tx3);">Signal Pattern</th>
+          </tr>
+        </thead>
+        <tbody id="lag-tbody"></tbody>
+      </table>
+    </div>
+    <div style="padding:16px 20px;border-top:1px solid var(--b);">
+      <div style="background:linear-gradient(135deg,rgba(95,156,248,.06),rgba(18,212,166,.03));border:1px solid rgba(95,156,248,.2);border-radius:var(--r);padding:14px 18px;">
+        <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--bl);margin-bottom:8px;font-weight:600;">📋 Business Interpretation of Lag Results</div>
+        <div style="font-size:12px;color:var(--tx2);line-height:1.85;" id="lag-interp">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHOCK COMPARISON CHART ── -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="ch">
+      <div>
+        <div class="ct">Volatility During Low vs High Renewable Feed-in Periods</div>
+        <div class="ct-sub">Average hourly realized volatility (%) during low feed-in (&lt;42.8%, bottom 25th percentile) vs high feed-in periods · Q1 2026 · Real data</div>
+      </div>
+    </div>
+    <div class="cb" style="padding-top:14px;">
+      <div style="position:relative;height:210px;"><canvas id="shock-chart"></canvas></div>
+    </div>
+    <div style="padding:0 20px 16px;">
+      <div style="background:linear-gradient(135deg,rgba(95,156,248,.06),rgba(18,212,166,.03));border:1px solid rgba(95,156,248,.2);border-radius:var(--r);padding:14px 18px;">
+        <div style="font-family:var(--mn);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--bl);margin-bottom:8px;font-weight:600;">📋 Interpretation</div>
+        <div style="font-size:12px;color:var(--tx2);line-height:1.85;">
+          In Q1 2026, most companies show <strong style="color:var(--tx);">higher realized volatility during high feed-in periods</strong> than low feed-in periods. This is counterintuitive relative to the H₁ hypothesis and may reflect several factors: (1) high-renewable periods in Q1 often coincide with active daytime trading sessions when solar peaks; (2) the minimum observed feed-in in Q1 2026 was 24.2% — well above the H₁ threshold of 20% — meaning no true extreme shock events occurred in this dataset; (3) the lagged correlation analysis above is a more sensitive measure of the directional relationship. The lag results for Siemens, RWE, and E.ON remain statistically significant despite this chart showing higher average vol during high-feed-in periods.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EPEX DATA CONNECTION GUIDE ── -->
+  <div style="background:var(--bg2);border:1px solid var(--b);border-radius:var(--rl);padding:20px 24px;">
+    <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:14px;display:flex;align-items:center;gap:8px;"><span style="color:var(--am);">⏳</span> How to Connect Real EPEX Spot Price Data</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="font-family:var(--mn);font-size:11px;color:var(--tx2);line-height:1.85;margin-bottom:12px;">
+          EPEX Spot Day-Ahead prices are publicly available from SMARD.de. Once downloaded and merged with the existing dataset, replace the placeholder sections above with:
+        </div>
+        <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);line-height:2;background:var(--bg3);border-radius:var(--r);padding:12px 16px;">
+          ① Renewable share vs EPEX price scatter (confirm Merit-Order)<br>
+          ② EPEX price timeline with shock windows highlighted<br>
+          ③ Avg price: shock periods vs normal periods (bar chart)<br>
+          ④ Feed-in + EPEX price → volatility regression (stronger model)<br>
+          ⑤ Updated lag analysis with EPEX as second predictor
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--mn);font-size:11px;font-weight:600;color:var(--bl);margin-bottom:8px;">Data Download Steps:</div>
+        <div style="font-family:var(--mn);font-size:10px;color:var(--tx2);line-height:2;background:var(--bg3);border-radius:var(--r);padding:12px 16px;">
+          1. Go to: <span style="color:var(--bl);">smard.de/home/marktdaten</span><br>
+          2. Select: Wholesale Electricity Prices<br>
+          3. Select: EPEX Spot Day-Ahead (Germany/Luxembourg)<br>
+          4. Set range: Jan 2 – Mar 31, 2026 · Hourly resolution<br>
+          5. Download as CSV and merge on Start date column<br>
+          6. Replace placeholder charts in this section
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+</body>
+</html>
